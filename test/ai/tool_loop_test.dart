@@ -57,8 +57,8 @@ void main() {
       overrides: [
         apiKeyStoreProvider.overrideWithValue(MemoryKeyStore('sk-ant-k')),
         previewProvider.overrideWithValue(preview),
-        claudeClientFactoryProvider.overrideWithValue(
-          (k) => ClaudeClient(apiKey: k, httpClient: http.client),
+        assistantClientFactoryProvider.overrideWithValue(
+          (_, k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),
       ],
     );

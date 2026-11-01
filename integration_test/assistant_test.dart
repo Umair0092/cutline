@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cutline/ai/api_key_store.dart';
+import 'package:cutline/ai/assistant_client.dart';
 import 'package:cutline/ai/chat_controller.dart';
 import 'package:cutline/app.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,19 @@ void main() {
     tester,
   ) async {
     const store = ApiKeyStore();
-    final previous = (await tester.runAsync(store.read));
-    await tester.runAsync(() => store.write('sk-ant-test-roundtrip-123456'));
-    expect(await tester.runAsync(store.read), 'sk-ant-test-roundtrip-123456');
-    await tester.runAsync(store.delete);
-    expect(await tester.runAsync(store.read), isNull);
-    if (previous != null) await tester.runAsync(() => store.write(previous));
+    final previous = await tester.runAsync(() => store.read(AiProvider.groq));
+    await tester.runAsync(
+      () => store.write(AiProvider.groq, 'gsk_test-roundtrip-123456'),
+    );
+    expect(
+      await tester.runAsync(() => store.read(AiProvider.groq)),
+      'gsk_test-roundtrip-123456',
+    );
+    await tester.runAsync(() => store.delete(AiProvider.groq));
+    expect(await tester.runAsync(() => store.read(AiProvider.groq)), isNull);
+    if (previous != null) {
+      await tester.runAsync(() => store.write(AiProvider.groq, previous));
+    }
   });
 
   testWidgets('chat panel layout', (tester) async {

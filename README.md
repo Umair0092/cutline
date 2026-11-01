@@ -19,7 +19,7 @@ Status: planning. See [docs/ROADMAP.md](docs/ROADMAP.md) and the [issues](../../
 
 - Flutter (Dart), one codebase for macOS, Windows and iOS
 - media_kit for playback, FFmpeg for export
-- Claude API (tool use) for turning instructions into edits
+- AI that turns instructions into edits through tools: Groq's free tier (gpt-oss-120b) by default, or Claude
 - whisper.cpp for on-device transcription with word timestamps (CLI, bundled)
 
 ## Development

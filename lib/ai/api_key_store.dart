@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../settings/preferences.dart';
+import 'assistant_client.dart';
+
 /// Keeps the Claude API key in the system keychain (macOS/iOS Keychain,
 /// Windows Credential Manager), never in project files or preferences.
 class ApiKeyStore {
@@ -13,19 +16,30 @@ class ApiKeyStore {
   static const _defaultStorage = FlutterSecureStorage(
     mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
-  static const _key = 'claude_api_key';
+  static String _key(AiProvider provider) => '${provider.name}_api_key';
 
-  Future<String?> read() => _storage.read(key: _key);
+  Future<String?> read(AiProvider provider) =>
+      _storage.read(key: _key(provider));
 
-  Future<void> write(String value) =>
-      _storage.write(key: _key, value: value.trim());
+  Future<void> write(AiProvider provider, String value) =>
+      _storage.write(key: _key(provider), value: value.trim());
 
-  Future<void> delete() => _storage.delete(key: _key);
+  Future<void> delete(AiProvider provider) =>
+      _storage.delete(key: _key(provider));
 }
 
 final apiKeyStoreProvider = Provider<ApiKeyStore>((_) => const ApiKeyStore());
 
-/// The saved API key, or null if none.
+/// The service chosen in Settings.
+final aiProviderProvider = FutureProvider<AiProvider>((ref) async {
+  try {
+    return (await ref.watch(preferencesProvider.future)).provider;
+  } on Object {
+    return AiProvider.groq;
+  }
+});
+
+/// The saved API key for the chosen service, or null if none.
 final apiKeyProvider = AsyncNotifierProvider<ApiKeyNotifier, String?>(
   ApiKeyNotifier.new,
 );
@@ -33,22 +47,20 @@ final apiKeyProvider = AsyncNotifierProvider<ApiKeyNotifier, String?>(
 class ApiKeyNotifier extends AsyncNotifier<String?> {
   @override
   Future<String?> build() async {
-    final key = await ref.read(apiKeyStoreProvider).read();
+    final provider = await ref.watch(aiProviderProvider.future);
+    final key = await ref.read(apiKeyStoreProvider).read(provider);
     return (key == null || key.isEmpty) ? null : key;
   }
 
   Future<void> save(String key) async {
-    await ref.read(apiKeyStoreProvider).write(key);
+    final provider = await ref.read(aiProviderProvider.future);
+    await ref.read(apiKeyStoreProvider).write(provider, key);
     state = AsyncData(key.trim());
   }
 
   Future<void> remove() async {
-    await ref.read(apiKeyStoreProvider).delete();
+    final provider = await ref.read(aiProviderProvider.future);
+    await ref.read(apiKeyStoreProvider).delete(provider);
     state = const AsyncData(null);
   }
 }
-
-/// Rough check that catches pasting the wrong thing; the API has the final
-/// say.
-bool looksLikeApiKey(String key) =>
-    key.trim().startsWith('sk-ant-') && key.trim().length > 20;

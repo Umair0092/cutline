@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cutline/ai/api_key_store.dart';
+import 'package:cutline/ai/assistant_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -92,7 +93,7 @@ class ScriptedHttp {
           utf8.encode(
             jsonEncode({
               'type': 'error',
-              'error': {'type': type, 'message': 'nope'},
+              'error': {'type': type, 'code': type, 'message': 'nope'},
             }),
           ),
         ),
@@ -108,11 +109,11 @@ class MemoryKeyStore extends ApiKeyStore {
   String? value;
 
   @override
-  Future<String?> read() async => value;
+  Future<String?> read(AiProvider provider) async => value;
 
   @override
-  Future<void> write(String v) async => value = v.trim();
+  Future<void> write(AiProvider provider, String v) async => value = v.trim();
 
   @override
-  Future<void> delete() async => value = null;
+  Future<void> delete(AiProvider provider) async => value = null;
 }

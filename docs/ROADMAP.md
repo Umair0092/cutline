@@ -19,7 +19,7 @@ One codebase for macOS, Windows and iOS. Desktop comes first, iOS after the desk
 | Preview | media_kit (libmpv) | Same player on every platform, supports audio filters for live pitch preview |
 | Export | FFmpeg, bundled on desktop | One export pipeline for Mac and Windows. iOS needs a different route, see #19 |
 | Titles and overlays | Flutter widgets, rendered to frames for export | The same code draws the preview and the export, so they match |
-| AI | Claude API with tool use, key in secure storage | Turns plain language into structured edit commands |
+| AI | Groq free tier (gpt-oss-120b) or Claude, with tool use; keys in secure storage | Turns plain language into structured edit commands; Groq makes it free to use |
 | Transcription | whisper.cpp (on-device) | Runs on Mac, Windows and iOS, free, private, gives word timestamps |
 | Memes | GIPHY API + a local memes folder | Search by name, or use your own |
 | Voice | `record` package, FFmpeg/mpv `rubberband` for pitch, a TTS provider for AI voiceover | TTS provider is decided in #15 |

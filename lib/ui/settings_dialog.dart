@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
+import '../ai/assistant_client.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
 
@@ -41,20 +42,33 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     super.dispose();
   }
 
+  Future<void> _setProvider(AiProvider provider) async {
+    final prefs = await ref.read(preferencesProvider.future);
+    await ref
+        .read(preferencesProvider.notifier)
+        .save(prefs.copyWith(provider: provider));
+    setState(() {
+      _key.clear();
+      _error = null;
+    });
+  }
+
   Future<void> _save() async {
     final brand = _brand.text.trim();
     if (brand.isNotEmpty && parseHexColor(brand) == null) {
       setState(() => _brandError = 'Use a colour like #6C5CE7.');
       return;
     }
+    final prefs = await ref.read(preferencesProvider.future);
     await ref
         .read(preferencesProvider.notifier)
         .save(
-          Preferences(
+          prefs.copyWith(
             yourName: _name.text.trim(),
             brandColor: brand.isEmpty ? '' : toHex(parseHexColor(brand)!),
           ),
         );
+    final provider = prefs.provider;
     // The key is optional here: saving only your name is fine once a key
     // is stored.
     final saved = ref.read(apiKeyProvider).value;
@@ -62,11 +76,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       if (mounted) Navigator.pop(context);
       return;
     }
-    if (!looksLikeApiKey(_key.text)) {
+    if (!provider.looksLikeKey(_key.text)) {
       setState(
         () => _error =
-            'That doesn\'t look like a Claude API key '
-            '(they start with sk-ant-).',
+            'That doesn\'t look like a ${provider.label} key '
+            '(they start with ${provider.keyPrefix}).',
       );
       return;
     }
@@ -77,6 +91,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final saved = ref.watch(apiKeyProvider).value;
+    final provider =
+        ref.watch(preferencesProvider).value?.provider ?? AiProvider.groq;
     final theme = Theme.of(context);
     return AlertDialog(
       title: const Text('Settings'),
@@ -86,11 +102,34 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Claude API key', style: theme.textTheme.titleSmall),
+            Text('Assistant', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            SegmentedButton<AiProvider>(
+              key: const Key('provider'),
+              segments: [
+                for (final p in AiProvider.values)
+                  ButtonSegment(value: p, label: Text(p.label)),
+              ],
+              selected: {provider},
+              onSelectionChanged: (s) => _setProvider(s.first),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              provider == AiProvider.groq
+                  ? 'Free, with limits on how much you can ask per minute. '
+                        'Uses ${provider.model}.'
+                  : 'Paid; the most capable. Uses ${provider.model}.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${provider.label} API key',
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: 4),
             Text(
               saved == null
-                  ? 'The assistant needs a key from console.anthropic.com. '
+                  ? 'Get a key at ${provider.consoleUrl}. '
                         'It\'s stored in your system keychain.'
                   : 'A key ending in …${saved.substring(saved.length - 4)} '
                         'is saved in your system keychain.',
@@ -104,7 +143,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
-                hintText: saved == null ? 'sk-ant-…' : 'Paste a new key',
+                hintText: saved == null
+                    ? '${provider.keyPrefix}…'
+                    : 'Paste a new key',
                 errorText: _error,
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(

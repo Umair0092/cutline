@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'assistant_client.dart';
 import 'message_builder.dart';
 import 'sse.dart';
 
@@ -23,21 +24,12 @@ abstract final class ClaudeConfig {
   static const fallbackBeta = 'server-side-fallback-2026-07-01';
 }
 
-/// A failed request, with a message fit to show in the chat.
-class ClaudeException implements Exception {
-  ClaudeException(this.message, {this.statusCode, this.retryable = false});
-
-  final String message;
-  final int? statusCode;
-  final bool retryable;
-
-  @override
-  String toString() => message;
-}
+/// Kept as a name for Claude-specific code and tests.
+typedef ClaudeException = AssistantException;
 
 /// Calls the Messages API over HTTP (there's no official Dart SDK) and
 /// streams the reply.
-class ClaudeClient {
+class ClaudeClient implements AssistantClient {
   ClaudeClient({required this.apiKey, http.Client? httpClient})
     : _http = httpClient ?? http.Client();
 
@@ -50,6 +42,7 @@ class ClaudeClient {
   /// Each event is the same [MessageBuilder], updated; the stream ends when
   /// the message is complete. Rate limits, overloads, server and network
   /// errors are retried twice before the stream starts.
+  @override
   Stream<MessageBuilder> stream({
     required List<Map<String, dynamic>> system,
     required List<Map<String, dynamic>> messages,
@@ -175,5 +168,6 @@ class ClaudeClient {
     };
   }
 
+  @override
   void close() => _http.close();
 }

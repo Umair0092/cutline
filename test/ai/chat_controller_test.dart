@@ -19,8 +19,8 @@ void main() {
       overrides: [
         apiKeyStoreProvider.overrideWithValue(MemoryKeyStore(key)),
         previewProvider.overrideWithValue(FakePreviewController()),
-        claudeClientFactoryProvider.overrideWithValue(
-          (k) => ClaudeClient(apiKey: k, httpClient: http.client),
+        assistantClientFactoryProvider.overrideWithValue(
+          (_, k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),
       ],
     );

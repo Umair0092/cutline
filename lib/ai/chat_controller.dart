@@ -13,7 +13,9 @@ import '../titles/title_actions.dart';
 import '../preview/preview_controller.dart';
 import '../transcript/timeline_transcript.dart';
 import 'api_key_store.dart';
+import 'assistant_client.dart';
 import 'claude_client.dart';
+import 'groq_client.dart';
 import 'edit_tools.dart';
 import 'message_builder.dart';
 import 'project_summary.dart';
@@ -130,11 +132,16 @@ final introRendererProvider =
                 renderIntroMedia(project, workPath, spec, id: id),
     );
 
-/// Builds the client for a key. Tests override this with a fake.
-final claudeClientFactoryProvider = Provider<ClaudeClient Function(String)>(
-  (_) =>
-      (key) => ClaudeClient(apiKey: key),
-);
+/// Builds the client for a service and key. Tests override this with a
+/// fake.
+final assistantClientFactoryProvider =
+    Provider<AssistantClient Function(AiProvider, String)>(
+      (_) =>
+          (provider, key) => switch (provider) {
+            AiProvider.groq => GroqClient(apiKey: key, model: provider.model),
+            AiProvider.claude => ClaudeClient(apiKey: key),
+          },
+    );
 
 const systemPrompt = '''
 You are the editing assistant inside Cutline, a video editor. The user talks to you in a narrow side panel while editing a video.
@@ -145,7 +152,7 @@ Titles and intros: templates are clean-card (title + subtitle card), bold-kineti
 
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
 
-After editing, reply in one short sentence saying what changed. Use plain text, no markdown. Write times like 1:15.5.''';
+Don't write anything before or between tool calls. When all edits are done, reply once, in one short sentence saying what changed. Use plain text, no markdown. Write times as minutes:seconds, like 0:15 or 1:15.5.''';
 
 /// How many tool round trips one message may take before stopping.
 const maxToolRounds = 8;
@@ -184,7 +191,7 @@ class ChatController extends Notifier<ChatState> {
     if (message.isEmpty || state.busy) return;
     final key = await ref.read(apiKeyProvider.future);
     if (key == null) {
-      _notice('Add your Claude API key in Settings to use the assistant.');
+      _notice('Add an API key in Settings to use the assistant.');
       return;
     }
 
@@ -228,7 +235,10 @@ class ChatController extends Notifier<ChatState> {
       busy: true,
     );
 
-    final client = ref.read(claudeClientFactoryProvider)(key);
+    final provider = await ref
+        .read(aiProviderProvider.future)
+        .catchError((Object _) => AiProvider.groq);
+    final client = ref.read(assistantClientFactoryProvider)(provider, key);
     var working = start;
     final commands = <EditCommand>[];
     Duration? seekTo;
@@ -344,7 +354,7 @@ class ChatController extends Notifier<ChatState> {
   /// Streams one API reply, showing [shownBefore] plus the new text.
   /// Returns null if the request failed (a notice is shown) or was stopped.
   Future<MessageBuilder?> _stream(
-    ClaudeClient client,
+    AssistantClient client,
     List<Map<String, dynamic>> messages,
     String shownBefore,
   ) {
@@ -370,7 +380,7 @@ class ChatController extends Notifier<ChatState> {
             // The failed message isn't added to history and nothing is
             // committed, so the next message starts clean.
             _end(
-              notice: e is ClaudeException
+              notice: e is AssistantException
                   ? e.message
                   : 'Something went wrong: $e',
             );

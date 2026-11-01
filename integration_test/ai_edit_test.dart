@@ -67,8 +67,8 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         apiKeyStoreProvider.overrideWithValue(MemoryKeyStore('sk-ant-demo')),
-        claudeClientFactoryProvider.overrideWithValue(
-          (k) => ClaudeClient(apiKey: k, httpClient: http.client),
+        assistantClientFactoryProvider.overrideWithValue(
+          (_, k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),
       ],
     );

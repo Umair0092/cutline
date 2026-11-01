@@ -288,7 +288,7 @@ class _NoKey extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Add your Claude API key to start editing with the assistant.',
+              'Add an API key to start editing with the assistant. Groq has a free one.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),

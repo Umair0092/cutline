@@ -14,6 +14,17 @@ import 'package:flutter_test/flutter_test.dart';
 import '../ai/fake_claude.dart';
 import '../fake_preview.dart';
 
+/// Lets real file writes (preferences) finish, then settles the UI.
+Future<void> settle(WidgetTester tester) async {
+  for (var i = 0; i < 5; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
+
 void main() {
   late MemoryKeyStore keys;
   late ScriptedHttp http;
@@ -35,8 +46,8 @@ void main() {
         supportDirProvider.overrideWith(
           (_) async => Directory.systemTemp.createTempSync('cutline_ui').path,
         ),
-        claudeClientFactoryProvider.overrideWithValue(
-          (k) => ClaudeClient(apiKey: k, httpClient: http.client),
+        assistantClientFactoryProvider.overrideWithValue(
+          (_, k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),
       ],
     );
@@ -62,15 +73,25 @@ void main() {
     await tester.enterText(find.byKey(const Key('api-key')), 'not-a-key');
     await tester.tap(find.byKey(const Key('save-key')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('start with sk-ant-'), findsOneWidget);
+    // Groq (free) is the default service.
+    expect(find.textContaining('start with gsk_'), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const Key('api-key')),
-      ' sk-ant-api03-abcdefghijklmnop ',
-    );
+    // Switching to Claude asks for a Claude key instead.
+    await tester.tap(find.text('Claude'));
+    await settle(tester);
     await tester.tap(find.byKey(const Key('save-key')));
     await tester.pumpAndSettle();
-    expect(keys.value, 'sk-ant-api03-abcdefghijklmnop');
+    expect(find.textContaining('start with sk-ant-'), findsOneWidget);
+
+    await tester.tap(find.text('Groq (free)'));
+    await settle(tester);
+    await tester.enterText(
+      find.byKey(const Key('api-key')),
+      ' gsk_abcdefghijklmnopqrstuv ',
+    );
+    await tester.tap(find.byKey(const Key('save-key')));
+    await settle(tester);
+    expect(keys.value, 'gsk_abcdefghijklmnopqrstuv');
     expect(find.text('Try asking'), findsOneWidget);
   });
 
