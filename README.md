@@ -1,6 +1,6 @@
 # Cutline
 
-A macOS video editor where you describe the edit and the app does it.
+A video editor for macOS, Windows and iOS where you describe the edit and the app does it. One Flutter codebase for all three.
 
 Tell it "add an intro with my name and the title *Weekly Rails Tips*", "put the 'this is fine' meme where I talk about deadlines", or "lower my voice a little", and Cutline turns that into real edits on the timeline. Every change the AI makes is a normal edit: you can see it, tweak it in the inspector, or undo it.
 
@@ -17,7 +17,7 @@ Status: planning. See [docs/ROADMAP.md](docs/ROADMAP.md) and the [issues](../../
 
 ## Stack
 
-- Swift + SwiftUI, macOS 14+
-- AVFoundation for playback, composition and export
+- Flutter (Dart), one codebase for macOS, Windows and iOS
+- media_kit for playback, FFmpeg for export
 - Claude API (tool use) for turning instructions into edits
-- WhisperKit for on-device transcription with word timestamps
+- whisper.cpp for on-device transcription with word timestamps
