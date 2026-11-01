@@ -8,7 +8,7 @@ import 'transcription_service.dart';
 /// Absolute paths of the project's videos that have sound.
 List<String> spokenMediaPaths(EditorState state) => [
   for (final m in state.project.media)
-    if (m.hasAudio) ProjectStore.resolve(m.path, state.projectPath),
+    if (m.hasAudio) ProjectStore.resolve(m.path, state.workPath),
 ];
 
 /// The transcript lines on the timeline (after cuts) for the open project.
@@ -18,6 +18,6 @@ final timelineTranscriptProvider = Provider<List<TranscriptLine>>((ref) {
   return timelineLines(
     state.project,
     ref.read(transcriptsProvider.notifier).ready,
-    projectPath: state.projectPath,
+    projectPath: state.workPath,
   );
 });

@@ -27,6 +27,7 @@ files="$*"
 for f in $files; do
   # The previous run's app can linger and block the next launch.
   pkill -x cutline 2>/dev/null || true
-  flutter test "$f" -d macos
+  # A launch occasionally hangs; give each file 10 minutes at most.
+  perl -e 'alarm shift; exec @ARGV' 600 flutter test "$f" -d macos
 done
 echo "Screenshots saved to ./screenshots"

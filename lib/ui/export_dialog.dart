@@ -48,7 +48,7 @@ Future<void> showExportFlow(WidgetRef ref, BuildContext context) async {
   try {
     job = await Exporter(ffmpeg).start(
       project: state.project,
-      projectPath: state.projectPath,
+      projectPath: state.workPath,
       preset: preset,
       outputPath: path,
     );

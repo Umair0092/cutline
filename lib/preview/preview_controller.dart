@@ -15,7 +15,7 @@ final previewProvider = Provider<PreviewController>((ref) {
   // Reload the player whenever the main track changes.
   String? lastEdl;
   void sync(EditorState state) {
-    final edl = buildEdl(state.project, projectPath: state.projectPath);
+    final edl = buildEdl(state.project, projectPath: state.workPath);
     if (edl == lastEdl) return;
     lastEdl = edl;
     unawaited(controller.load(edl));

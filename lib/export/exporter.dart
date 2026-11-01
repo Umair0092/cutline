@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../model/project.dart';
+import '../titles/title_renderer.dart';
 import 'export_settings.dart';
 import 'ffmpeg_command.dart';
 
@@ -141,14 +144,38 @@ class Exporter {
     required String outputPath,
   }) async {
     final encoder = await EncoderPicker(ffmpeg).pick();
+    final format = ExportFormat.forProject(project, preset);
+
+    // Titles over the video are drawn at the exact output size first.
+    final work = Directory.systemTemp.createTempSync('cutline_export');
+    final overlays = <({String path, Duration start})>[];
+    for (final title in project.titles) {
+      final path = p.join(work.path, '${title.id}.mov');
+      await TitleRenderer(ffmpeg).renderOverlay(
+        title.spec,
+        path,
+        width: format.width,
+        height: format.height,
+        fps: format.frameRate,
+      );
+      overlays.add((path: path, start: title.start));
+    }
+
     final args = buildExportArgs(
       project: project,
       projectPath: projectPath,
-      format: ExportFormat.forProject(project, preset),
+      format: format,
       encoder: encoder,
       outputPath: outputPath,
+      titleOverlays: overlays,
     );
     final process = await Process.start(ffmpeg, args);
-    return ExportJob._(process, outputPath, project.duration);
+    final job = ExportJob._(process, outputPath, project.duration);
+    unawaited(
+      job.done
+          .whenComplete(() => work.deleteSync(recursive: true))
+          .then((_) {}, onError: (_) {}),
+    );
+    return job;
   }
 }

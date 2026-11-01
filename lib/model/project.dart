@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'audio_item.dart';
 import 'media_asset.dart';
 import 'overlay_item.dart';
+import 'title_item.dart';
 import 'video_clip.dart';
 
 part 'project.freezed.dart';
@@ -23,6 +24,7 @@ abstract class Project with _$Project {
     @Default(<VideoClip>[]) List<VideoClip> clips,
     @Default(<OverlayItem>[]) List<OverlayItem> overlays,
     @Default(<AudioItem>[]) List<AudioItem> audio,
+    @Default(<TitleItem>[]) List<TitleItem> titles,
   }) = _Project;
 
   factory Project.fromJson(Map<String, dynamic> json) =>

@@ -6,6 +6,15 @@ import '../media/media_previews.dart';
 import '../model/project.dart';
 import 'timeline_geometry.dart';
 import 'timeline_layout.dart';
+import '../model/title_item.dart';
+import '../titles/templates.dart';
+
+/// Short text for a title on the timeline: its main text, else its type.
+String titleLabel(TitleSpec spec) {
+  final template = templateById(spec.templateId);
+  final text = spec.fields['title'] ?? spec.fields['name'];
+  return text ?? template?.name ?? 'Title';
+}
 
 /// Vertical layout of the timeline rows.
 abstract final class TimelineRows {
@@ -69,6 +78,8 @@ class TracksPainter extends CustomPainter {
     required this.selectedClipId,
     required this.dropX,
     required this.visible,
+    this.selectedTitleId,
+    this.titleDrag,
   });
 
   final TimelineGeometry geometry;
@@ -85,6 +96,11 @@ class TracksPainter extends CustomPainter {
   /// The horizontal range that's on screen; nothing outside it is drawn.
   final ({double left, double right}) visible;
 
+  final String? selectedTitleId;
+
+  /// A title being dragged: its id and where it would start.
+  final ({String id, Duration start})? titleDrag;
+
   Project get project => geometry.project;
 
   @override
@@ -97,6 +113,7 @@ class TracksPainter extends CustomPainter {
     _paintSpans(canvas, TimelineRows.overlayTop, colors.overlay, [
       for (final o in project.overlays) (o.start, o.end),
     ]);
+    _paintTitles(canvas);
     _paintSpans(canvas, TimelineRows.audioTop, colors.audio, [
       for (final a in project.audio) (a.start, a.end),
     ]);
@@ -288,6 +305,42 @@ class TracksPainter extends CustomPainter {
       path.addRect(Rect.fromLTRB(x, mid - h, x + step - 0.5, mid + h));
     }
     canvas.drawPath(path, Paint()..color = colors.wave);
+  }
+
+  void _paintTitles(Canvas canvas) {
+    for (final title in project.titles) {
+      final start = titleDrag?.id == title.id ? titleDrag!.start : title.start;
+      final rect = Rect.fromLTRB(
+        geometry.xOf(start),
+        TimelineRows.overlayTop,
+        geometry.xOf(start + title.spec.duration),
+        TimelineRows.overlayTop + TimelineRows.rowHeight,
+      );
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+      canvas.drawRRect(rrect, Paint()..color = colors.overlay);
+      if (title.id == selectedTitleId) {
+        canvas.drawRRect(
+          rrect,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = colors.selected,
+        );
+      }
+      final label = TextPainter(
+        text: TextSpan(
+          text: titleLabel(title.spec),
+          style: TextStyle(fontSize: 11, color: colors.rulerText),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: (rect.width - 10).clamp(0, double.infinity));
+      label.paint(
+        canvas,
+        Offset(rect.left + 5, rect.center.dy - label.height / 2),
+      );
+    }
   }
 
   void _paintSpans(

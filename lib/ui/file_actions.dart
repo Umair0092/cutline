@@ -75,7 +75,7 @@ class FileActions {
       await _store.save(
         _state.project.copyWith(name: name),
         path,
-        previousPath: _state.projectPath,
+        previousPath: _state.workPath,
       );
       await const ChatStore().save(path, ref.read(chatProvider));
     } on FileSystemException catch (e) {

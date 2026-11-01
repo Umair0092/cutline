@@ -73,8 +73,28 @@ void main() {
       expect(graph, contains('apad,atrim=duration=20.000000'));
       expect(
         graph,
-        endsWith('[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vout][aout]'),
+        contains('[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vmain][aout]'),
       );
+      expect(graph, endsWith('[vmain]null[vout]'));
+    });
+
+    test('titles are extra inputs laid over the video at their start', () {
+      final a = buildExportArgs(
+        project: threeClips(),
+        projectPath: null,
+        format: format,
+        encoder: VideoEncoder.videotoolbox,
+        outputPath: '/out.mp4',
+        titleOverlays: [(path: '/tmp/t1.mov', start: s(2.5))],
+      );
+      expect(a, containsAllInOrder(['-i', '/tmp/t1.mov']));
+      final graph = a[a.indexOf('-filter_complex') + 1];
+      expect(graph, contains('[3:v:0]setpts=PTS-STARTPTS+2.500000/TB[title0]'));
+      expect(
+        graph,
+        contains('[vmain][title0]overlay=0:0:eof_action=pass[vt0]'),
+      );
+      expect(graph, endsWith('[vt0]null[vout]'));
     });
 
     test('silent clips get generated silence', () {

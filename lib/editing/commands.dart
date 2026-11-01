@@ -4,6 +4,7 @@ import '../model/audio_item.dart';
 import '../model/media_asset.dart';
 import '../model/overlay_item.dart';
 import '../model/project.dart';
+import '../model/title_item.dart';
 import '../model/video_clip.dart';
 import 'edit_command.dart';
 
@@ -262,6 +263,10 @@ class RemoveRange extends EditCommand {
         for (final a in project.audio)
           if (!inside(a.start, a.end)) a.copyWith(start: shift(a.start)),
       ],
+      titles: [
+        for (final t in project.titles)
+          if (!inside(t.start, t.end)) t.copyWith(start: shift(t.start)),
+      ],
     );
   }
 }
@@ -379,6 +384,90 @@ void _checkSpan(Project project, Duration start, Duration duration) {
     throw EditException(
       '${formatTime(start)} is past the end of the video '
       '(${formatTime(project.duration)}).',
+    );
+  }
+}
+
+class AddTitle extends EditCommand {
+  const AddTitle(this.title);
+  final TitleItem title;
+
+  @override
+  String get label => 'Add title';
+
+  @override
+  Project apply(Project project) {
+    _checkSpan(project, title.start, title.spec.duration);
+    return project.copyWith(titles: [...project.titles, title]);
+  }
+}
+
+class UpdateTitle extends EditCommand {
+  const UpdateTitle(this.titleId, {this.spec, this.start});
+  final String titleId;
+  final TitleSpec? spec;
+  final Duration? start;
+
+  @override
+  String get label =>
+      start != null && spec == null ? 'Move title' : 'Edit title';
+
+  @override
+  Project apply(Project project) {
+    final t = project.titles.where((t) => t.id == titleId).firstOrNull;
+    if (t == null) throw EditException('There is no title $titleId.');
+    final updated = t.copyWith(spec: spec ?? t.spec, start: start ?? t.start);
+    _checkSpan(project, updated.start, updated.spec.duration);
+    return project.copyWith(
+      titles: [for (final x in project.titles) x.id == titleId ? updated : x],
+    );
+  }
+}
+
+class RemoveTitle extends EditCommand {
+  const RemoveTitle(this.titleId);
+  final String titleId;
+
+  @override
+  String get label => 'Delete title';
+
+  @override
+  Project apply(Project project) {
+    if (!project.titles.any((t) => t.id == titleId)) {
+      throw EditException('There is no title $titleId.');
+    }
+    return project.copyWith(
+      titles: project.titles.where((t) => t.id != titleId).toList(),
+    );
+  }
+}
+
+/// Points a generated intro at a newly rendered file (after its text,
+/// colours or length changed). Clips using it are stretched to the new
+/// length.
+class ReplaceGeneratedMedia extends EditCommand {
+  const ReplaceGeneratedMedia(this.updated);
+  final MediaAsset updated;
+
+  @override
+  String get label => 'Edit intro';
+
+  @override
+  Project apply(Project project) {
+    if (project.mediaById(updated.id) == null) {
+      throw EditException('Unknown media ${updated.id}.');
+    }
+    return project.copyWith(
+      media: [for (final m in project.media) m.id == updated.id ? updated : m],
+      clips: [
+        for (final c in project.clips)
+          c.mediaId == updated.id
+              ? c.copyWith(
+                  sourceStart: Duration.zero,
+                  sourceEnd: updated.duration,
+                )
+              : c,
+      ],
     );
   }
 }

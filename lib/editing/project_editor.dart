@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../model/project.dart';
@@ -22,6 +24,7 @@ class EditorState {
     required this.project,
     this.savedProject,
     this.projectPath,
+    this.scratchPath,
     this.undoStack = const [],
     this.redoStack = const [],
   });
@@ -33,6 +36,14 @@ class EditorState {
 
   /// Folder of the open `.cutline` project, null until first saved.
   final String? projectPath;
+
+  /// A temporary folder that stands in for the project folder until the
+  /// first save, so files the app makes (rendered intros, recordings) have
+  /// somewhere to live. Save copies its `assets/` into the real project.
+  final String? scratchPath;
+
+  /// Where project-relative media paths (`assets/...`) are resolved.
+  String? get workPath => projectPath ?? scratchPath;
 
   final List<HistoryEntry> undoStack;
   final List<HistoryEntry> redoStack;
@@ -47,6 +58,7 @@ class EditorState {
     Project? project,
     Project? savedProject,
     String? projectPath,
+    String? scratchPath,
     List<HistoryEntry>? undoStack,
     List<HistoryEntry>? redoStack,
   }) {
@@ -54,6 +66,7 @@ class EditorState {
       project: project ?? this.project,
       savedProject: savedProject ?? this.savedProject,
       projectPath: projectPath ?? this.projectPath,
+      scratchPath: scratchPath ?? this.scratchPath,
       undoStack: undoStack ?? this.undoStack,
       redoStack: redoStack ?? this.redoStack,
     );
@@ -70,7 +83,11 @@ class ProjectEditor extends Notifier<EditorState> {
   static const maxHistory = 200;
 
   @override
-  EditorState build() => const EditorState(project: Project());
+  EditorState build() =>
+      EditorState(project: const Project(), scratchPath: _newScratch());
+
+  static String _newScratch() =>
+      Directory.systemTemp.createTempSync('cutline_unsaved').path;
 
   /// Applies [command] as one undo step. Throws [EditException] and leaves
   /// the project unchanged if the command is invalid.
@@ -120,7 +137,8 @@ class ProjectEditor extends Notifier<EditorState> {
   }
 
   /// Starts over with an empty project.
-  void newProject() => state = const EditorState(project: Project());
+  void newProject() =>
+      state = EditorState(project: const Project(), scratchPath: _newScratch());
 
   /// Replaces the state after opening a project from disk.
   void opened(Project project, String path) {

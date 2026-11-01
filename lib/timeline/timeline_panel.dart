@@ -12,6 +12,10 @@ import '../editing/project_editor.dart';
 import '../media/media_previews.dart';
 import '../preview/preview_controller.dart';
 import '../storage/project_store.dart';
+import '../export/exporter.dart';
+import '../model/title_item.dart';
+import '../titles/title_actions.dart';
+import '../titles/title_editor_dialog.dart';
 import 'timeline_geometry.dart';
 import 'timeline_layout.dart';
 import 'timeline_painter.dart';
@@ -23,8 +27,21 @@ void splitAtPlayhead(WidgetRef ref, BuildContext context) {
   _runOrShow(ref, context, SplitAt(at));
 }
 
-/// Deletes the selected clip. Shared by the toolbar and Delete/Backspace.
+/// Deletes the selected title or clip. Shared by the toolbar and
+/// Delete/Backspace.
 void deleteSelectedClip(WidgetRef ref, BuildContext context) {
+  final titleId = ref.read(timelineUiProvider).selectedTitleId;
+  if (titleId != null) {
+    if (ref
+        .read(projectEditorProvider)
+        .project
+        .titles
+        .any((t) => t.id == titleId)) {
+      _runOrShow(ref, context, RemoveTitle(titleId));
+    }
+    ref.read(timelineUiProvider.notifier).selectTitle(null);
+    return;
+  }
   final id = ref.read(timelineUiProvider).selectedClipId;
   if (id == null) return;
   if (ref.read(projectEditorProvider).project.clipIndex(id) < 0) {
@@ -48,6 +65,69 @@ bool _runOrShow(WidgetRef ref, BuildContext context, EditCommand command) {
   } on EditException catch (e) {
     _show(context, e.message);
     return false;
+  }
+}
+
+/// Opens the title editor and adds what the user makes. Titles over the
+/// video start at the playhead.
+Future<void> addTitleFlow(WidgetRef ref, BuildContext context) async {
+  final project = ref.read(projectEditorProvider).project;
+  final f = projectTitleFormat(project);
+  final edit = await showTitleEditor(context, aspectRatio: f.width / f.height);
+  if (edit == null || !context.mounted) return;
+  final playhead = ref.read(previewProvider).position;
+  await _withProgress(
+    context,
+    edit.placement == TitlePlacement.before,
+    () => addTitle(ref, edit.spec, edit.placement, start: playhead),
+  );
+}
+
+/// Edits a title over the video, or an intro clip made from a template.
+Future<void> editTitleFlow(
+  WidgetRef ref,
+  BuildContext context, {
+  String? titleId,
+  String? introMediaId,
+}) async {
+  final project = ref.read(projectEditorProvider).project;
+  final f = projectTitleFormat(project);
+  final spec = titleId != null
+      ? project.titles.where((t) => t.id == titleId).firstOrNull?.spec
+      : project.mediaById(introMediaId!)?.title;
+  if (spec == null) return;
+  final edit = await showTitleEditor(
+    context,
+    initial: spec,
+    placement: titleId != null ? TitlePlacement.over : TitlePlacement.before,
+    aspectRatio: f.width / f.height,
+  );
+  if (edit == null || edit.spec == spec || !context.mounted) return;
+  await _withProgress(
+    context,
+    titleId == null,
+    () => titleId != null
+        ? updateOverlayTitle(ref, titleId, edit.spec)
+        : updateIntroClip(ref, introMediaId!, edit.spec),
+  );
+}
+
+/// Intros before the video are rendered to a clip, which takes a moment.
+Future<void> _withProgress(
+  BuildContext context,
+  bool rendering,
+  Future<void> Function() work,
+) async {
+  if (rendering) _show(context, 'Making the intro…');
+  try {
+    await work();
+    if (rendering && context.mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  } on EditException catch (e) {
+    if (context.mounted) _show(context, e.message);
+  } on ExportException catch (e) {
+    if (context.mounted) _show(context, e.message);
   }
 }
 
@@ -111,11 +191,17 @@ class _Toolbar extends ConsumerWidget {
           ),
           IconButton(
             key: const Key('delete'),
-            tooltip: 'Delete clip (Delete)',
+            tooltip: 'Delete (Delete)',
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: ui.selectedClipId != null
+            onPressed: ui.selectedClipId != null || ui.selectedTitleId != null
                 ? () => deleteSelectedClip(ref, context)
                 : null,
+          ),
+          IconButton(
+            key: const Key('add-title'),
+            tooltip: 'Add title or intro',
+            icon: const Icon(Icons.title, size: 18),
+            onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
           ),
           const Spacer(),
           IconButton(
@@ -153,7 +239,7 @@ class TimelineTracks extends ConsumerStatefulWidget {
   ConsumerState<TimelineTracks> createState() => _TimelineTracksState();
 }
 
-enum _DragKind { scrub, trim, move }
+enum _DragKind { scrub, trim, move, moveTitle }
 
 class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   final _scroll = ScrollController();
@@ -213,6 +299,59 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
     pixelsPerSecond: ref.read(timelineUiProvider).pixelsPerSecond,
   );
 
+  ({String id, Duration start})? _titleDrag;
+  Duration _titleGrab = Duration.zero;
+  Offset? _doubleTapAt;
+
+  // Double-clicks are detected here instead of with a double-tap
+  // recognizer, which would delay every single click by ~300 ms.
+  Offset? _lastTapAt;
+  final _sinceLastTap = Stopwatch();
+
+  bool _isDoubleClick(Offset at) {
+    final last = _lastTapAt;
+    final quick =
+        _sinceLastTap.isRunning &&
+        _sinceLastTap.elapsed < const Duration(milliseconds: 350);
+    _lastTapAt = at;
+    _sinceLastTap
+      ..reset()
+      ..start();
+    return last != null && quick && (last - at).distance < 6;
+  }
+
+  bool _inTitleRow(double y) =>
+      y >= TimelineRows.overlayTop &&
+      y <= TimelineRows.overlayTop + TimelineRows.rowHeight;
+
+  /// The title under the pointer in the titles row, if any.
+  TitleItem? _hitTitle(Offset at) {
+    if (!_inTitleRow(at.dy)) return null;
+    final g = _geometry();
+    final t = g.timeAt(at.dx);
+    return g.project.titles.reversed
+        .where((x) => t >= x.start && t < x.end)
+        .firstOrNull;
+  }
+
+  void _onDoubleTap() {
+    final at = _doubleTapAt;
+    if (at == null) return;
+    final title = _hitTitle(at);
+    if (title != null) {
+      unawaited(editTitleFlow(ref, context, titleId: title.id));
+      return;
+    }
+    if (!_inVideoRow(at.dy)) return;
+    final g = _geometry();
+    final hit = g.hitClip(at.dx);
+    if (hit == null) return;
+    final media = g.project.mediaById(g.project.clips[hit.index].mediaId);
+    if (media?.title != null) {
+      unawaited(editTitleFlow(ref, context, introMediaId: media!.id));
+    }
+  }
+
   bool _inVideoRow(double y) =>
       y >= TimelineRows.videoTop &&
       y <= TimelineRows.waveTop + TimelineRows.waveHeight;
@@ -240,6 +379,17 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onTapUp(TapUpDetails d) {
+    if (_isDoubleClick(d.localPosition)) {
+      _doubleTapAt = d.localPosition;
+      _onDoubleTap();
+      return;
+    }
+    final title = _hitTitle(d.localPosition);
+    if (title != null) {
+      ref.read(timelineUiProvider.notifier).selectTitle(title.id);
+      _seekTo(d.localPosition.dx);
+      return;
+    }
     final g = _geometry();
     final hit = _inVideoRow(d.localPosition.dy)
         ? g.hitClip(d.localPosition.dx)
@@ -251,6 +401,16 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onPanStart(DragStartDetails d) {
+    final title = _hitTitle(d.localPosition);
+    if (title != null) {
+      ref.read(timelineUiProvider.notifier).selectTitle(title.id);
+      _titleGrab = _geometry().timeAt(d.localPosition.dx) - title.start;
+      setState(() {
+        _dragKind = _DragKind.moveTitle;
+        _titleDrag = (id: title.id, start: title.start);
+      });
+      return;
+    }
     final g = _geometry();
     final hit = _inVideoRow(d.localPosition.dy)
         ? g.hitClip(d.localPosition.dx)
@@ -291,6 +451,15 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
             x: d.localPosition.dx,
           );
         });
+      case _DragKind.moveTitle when _titleDrag != null:
+        var start = g.timeAt(d.localPosition.dx) - _titleGrab;
+        if (start < Duration.zero) start = Duration.zero;
+        start = g.snap(start, [
+          Duration.zero,
+          _position.value,
+          ...g.project.clipStarts,
+        ]);
+        setState(() => _titleDrag = (id: _titleDrag!.id, start: start));
       case _DragKind.trim when drag is TrimDrag:
         final raw = g.timeAt(d.localPosition.dx - _grabOffset);
         final targets = [
@@ -310,6 +479,19 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onPanEnd(DragEndDetails _) {
+    final titleDrag = _titleDrag;
+    if (_dragKind == _DragKind.moveTitle && titleDrag != null) {
+      setState(() {
+        _titleDrag = null;
+        _dragKind = null;
+      });
+      _runOrShow(
+        ref,
+        context,
+        UpdateTitle(titleDrag.id, start: titleDrag.start),
+      );
+      return;
+    }
     final g = _geometry();
     final drag = _drag;
     setState(() {
@@ -379,7 +561,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
             ref
                 .watch(
                   mediaPreviewProvider(
-                    ProjectStore.resolve(m.path, state.projectPath),
+                    ProjectStore.resolve(m.path, state.workPath),
                   ),
                 )
                 .value ??
@@ -443,6 +625,8 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                         selectedClipId: ui.selectedClipId,
                         dropX: dropX,
                         visible: visible,
+                        selectedTitleId: ui.selectedTitleId,
+                        titleDrag: _titleDrag,
                       ),
                       foregroundPainter: PlayheadPainter(
                         geometry: g,

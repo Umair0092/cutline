@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
 import '../preview/preview_controller.dart';
+import '../titles/title_actions.dart';
+import '../titles/title_preview.dart';
 import 'import_actions.dart';
 import 'time_format.dart';
 
@@ -90,7 +92,32 @@ class _Player extends ConsumerWidget {
     final preview = ref.watch(previewProvider);
     return Column(
       children: [
-        Expanded(child: preview.buildVideo()),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // Titles are drawn on the exact area the video fills (the
+              // export frame), not on the black bars around it.
+              final f = projectTitleFormat(
+                ref.watch(projectEditorProvider.select((s) => s.project)),
+              );
+              final frame = applyBoxFit(
+                BoxFit.contain,
+                Size(f.width.toDouble(), f.height.toDouble()),
+                box.biggest,
+              ).destination;
+              final rect = Alignment.center.inscribe(
+                frame,
+                Offset.zero & box.biggest,
+              );
+              return Stack(
+                children: [
+                  Positioned.fill(child: preview.buildVideo()),
+                  Positioned.fromRect(rect: rect, child: const TitleLayer()),
+                ],
+              );
+            },
+          ),
+        ),
         const TransportBar(),
       ],
     );

@@ -41,6 +41,7 @@ List<String> buildExportArgs({
   required ExportFormat format,
   required VideoEncoder encoder,
   required String outputPath,
+  List<({String path, Duration start})> titleOverlays = const [],
 }) {
   if (project.clips.isEmpty) {
     throw ArgumentError('Nothing to export.');
@@ -80,8 +81,24 @@ List<String> buildExportArgs({
     concatInputs.write('[v$i][a$i]');
   }
   filters.add(
-    '${concatInputs}concat=n=${project.clips.length}:v=1:a=1[vout][aout]',
+    '${concatInputs}concat=n=${project.clips.length}:v=1:a=1[vmain][aout]',
   );
+
+  // Titles drawn over the video: pre-rendered see-through clips, shifted to
+  // their start time and laid on top.
+  var video = 'vmain';
+  for (var k = 0; k < titleOverlays.length; k++) {
+    final input = project.clips.length + k;
+    inputs.addAll(['-i', titleOverlays[k].path]);
+    filters
+      ..add(
+        '[$input:v:0]setpts=PTS-STARTPTS+${_sec(titleOverlays[k].start)}/TB'
+        '[title$k]',
+      )
+      ..add('[$video][title$k]overlay=0:0:eof_action=pass[vt$k]');
+    video = 'vt$k';
+  }
+  filters.add('[$video]null[vout]');
 
   return [
     '-hide_banner',
