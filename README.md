@@ -21,3 +21,14 @@ Status: planning. See [docs/ROADMAP.md](docs/ROADMAP.md) and the [issues](../../
 - media_kit for playback, FFmpeg for export
 - Claude API (tool use) for turning instructions into edits
 - whisper.cpp for on-device transcription with word timestamps
+
+## Development
+
+You need Flutter 3.47 or newer, and Xcode for the macOS build (Visual Studio with the C++ workload on Windows).
+
+```sh
+flutter pub get
+flutter run -d macos        # or -d windows
+flutter test                # unit and widget tests
+tool/screenshots.sh         # integration tests on macOS, saves screenshots to ./screenshots
+```

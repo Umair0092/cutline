@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.9
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze
+      - run: flutter test
+
+  # macOS minutes cost 10x and Windows 2x on private repos, so platform
+  # builds run only for PRs into main, pushes to main, and manual runs.
+  build:
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos
+          - os: windows-latest
+            target: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ${{ matrix.target }} --release
