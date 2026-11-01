@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  crypto: ^3.0.8
   desktop_drop: ^0.8.4
   file_selector: ^1.1.0
   flutter:
@@ -42,6 +43,7 @@ dependencies:
   media_kit_libs_video: ^1.0.7
   media_kit_video: ^2.0.1
   path: ^1.9.1
+  path_provider: ^2.1.6
   uuid: ^4.6.0
 
 dev_dependencies:

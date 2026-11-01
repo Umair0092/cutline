@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
+import '../timeline/timeline_panel.dart';
 import 'editor_shortcuts.dart';
 import 'preview_pane.dart';
 
@@ -41,11 +42,7 @@ class EditorScreen extends StatelessWidget {
             Divider(height: 1, color: colors.outlineVariant),
             const SizedBox(
               height: timelineHeight,
-              child: EditorPane(
-                key: Key('timeline'),
-                label: 'Timeline',
-                icon: Icons.view_timeline_outlined,
-              ),
+              child: TimelinePanel(key: Key('timeline')),
             ),
           ],
         ),

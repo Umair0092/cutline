@@ -50,6 +50,10 @@ class MpvPreviewController implements PreviewController {
   late final VideoController _video;
   String? _edl;
 
+  /// The load in progress, so seeks and play wait for the file to be open
+  /// instead of being dropped.
+  Future<void> _loading = Future.value();
+
   @override
   Stream<Duration> get positionStream => player.stream.position;
   @override
@@ -61,7 +65,9 @@ class MpvPreviewController implements PreviewController {
 
   /// Opens [edl], keeping the playhead where it was (clamped to the new
   /// length) and paused or playing as before.
-  Future<void> load(String? edl) async {
+  Future<void> load(String? edl) => _loading = _load(edl);
+
+  Future<void> _load(String? edl) async {
     final wasPlaying = player.state.playing;
     final at = player.state.position;
     _edl = edl;
@@ -70,10 +76,18 @@ class MpvPreviewController implements PreviewController {
       return;
     }
     await player.open(Media(edl, start: at), play: wasPlaying);
+    // open() returns before mpv knows the length; seeks before that are
+    // ignored.
+    if (player.state.duration == Duration.zero) {
+      await player.stream.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(const Duration(seconds: 10), onTimeout: () => Duration.zero);
+    }
   }
 
   @override
   Future<void> togglePlay() async {
+    await _loading;
     if (_edl == null) return;
     if (player.state.completed) await player.seek(Duration.zero);
     await player.playOrPause();
@@ -81,6 +95,7 @@ class MpvPreviewController implements PreviewController {
 
   @override
   Future<void> seek(Duration to) async {
+    await _loading;
     if (_edl == null) return;
     await player.seek(to < Duration.zero ? Duration.zero : to);
   }
