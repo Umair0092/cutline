@@ -1,10 +1,12 @@
 import 'package:cutline/app.dart';
 import 'package:cutline/editing/commands.dart';
 import 'package:cutline/editing/project_editor.dart';
+import 'package:cutline/preview/preview_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fake_preview.dart';
 import 'fixtures.dart';
 
 void main() {
@@ -15,7 +17,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [previewProvider.overrideWithValue(FakePreviewController())],
+    );
     addTearDown(container.dispose);
     container
         .read(projectEditorProvider.notifier)

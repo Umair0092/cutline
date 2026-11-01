@@ -10,18 +10,20 @@ import 'package:cutline/storage/project_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 
 import 'screenshot.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
 
   testWidgets('app opens the editor', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: CutlineApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Preview'), findsOneWidget);
+    expect(find.text('Drop a video here'), findsOneWidget);
     expect(find.text('Untitled'), findsOneWidget);
     await saveScreenshot(tester, 'editor');
   });

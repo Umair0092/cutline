@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
 import 'file_actions.dart';
+import 'import_actions.dart';
 
 /// One menu command, shown in the native macOS menu bar or an in-window
 /// menu bar on Windows.
@@ -47,6 +48,11 @@ class AppMenu extends ConsumerWidget {
           'Save As…',
           mod(LogicalKeyboardKey.keyS, shift: true),
           files.saveAs,
+        ),
+        MenuCommand(
+          'Import Video…',
+          mod(LogicalKeyboardKey.keyI),
+          () => pickAndImportVideos(ref, context),
         ),
       ],
       'Edit': [
@@ -98,30 +104,26 @@ class AppMenu extends ConsumerWidget {
           if (c.shortcut != null && c.onSelected != null)
             c.shortcut!: c.onSelected!,
       },
-      child: Focus(
-        autofocus: true,
-        child: Column(
-          children: [
-            MenuBar(
-              children: [
-                for (final MapEntry(key: title, value: commands)
-                    in menus.entries)
-                  SubmenuButton(
-                    menuChildren: [
-                      for (final c in commands)
-                        MenuItemButton(
-                          shortcut: c.shortcut,
-                          onPressed: c.onSelected,
-                          child: Text(c.label),
-                        ),
-                    ],
-                    child: Text(title),
-                  ),
-              ],
-            ),
-            Expanded(child: child),
-          ],
-        ),
+      child: Column(
+        children: [
+          MenuBar(
+            children: [
+              for (final MapEntry(key: title, value: commands) in menus.entries)
+                SubmenuButton(
+                  menuChildren: [
+                    for (final c in commands)
+                      MenuItemButton(
+                        shortcut: c.shortcut,
+                        onPressed: c.onSelected,
+                        child: Text(c.label),
+                      ),
+                  ],
+                  child: Text(title),
+                ),
+            ],
+          ),
+          Expanded(child: child),
+        ],
       ),
     );
   }

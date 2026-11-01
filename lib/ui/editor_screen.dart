@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
+import 'editor_shortcuts.dart';
+import 'preview_pane.dart';
 
 /// The main editor window: preview on the top left, sidebar on the right,
 /// timeline along the bottom.
@@ -15,42 +17,38 @@ class EditorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Column(
-        children: [
-          const ProjectTitleBar(),
-          Divider(height: 1, color: colors.outlineVariant),
-          Expanded(
-            child: Row(
-              children: [
-                const Expanded(
-                  child: EditorPane(
-                    key: Key('preview'),
-                    label: 'Preview',
-                    icon: Icons.play_circle_outline,
+      body: EditorShortcuts(
+        child: Column(
+          children: [
+            const ProjectTitleBar(),
+            Divider(height: 1, color: colors.outlineVariant),
+            Expanded(
+              child: Row(
+                children: [
+                  const Expanded(child: PreviewPane(key: Key('preview'))),
+                  VerticalDivider(width: 1, color: colors.outlineVariant),
+                  const SizedBox(
+                    width: sidebarWidth,
+                    child: EditorPane(
+                      key: Key('sidebar'),
+                      label: 'Assistant',
+                      icon: Icons.auto_awesome,
+                    ),
                   ),
-                ),
-                VerticalDivider(width: 1, color: colors.outlineVariant),
-                const SizedBox(
-                  width: sidebarWidth,
-                  child: EditorPane(
-                    key: Key('sidebar'),
-                    label: 'Assistant',
-                    icon: Icons.auto_awesome,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Divider(height: 1, color: colors.outlineVariant),
-          const SizedBox(
-            height: timelineHeight,
-            child: EditorPane(
-              key: Key('timeline'),
-              label: 'Timeline',
-              icon: Icons.view_timeline_outlined,
+            Divider(height: 1, color: colors.outlineVariant),
+            const SizedBox(
+              height: timelineHeight,
+              child: EditorPane(
+                key: Key('timeline'),
+                label: 'Timeline',
+                icon: Icons.view_timeline_outlined,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
