@@ -16,6 +16,7 @@ _MediaAsset _$MediaAssetFromJson(Map<String, dynamic> json) => _MediaAsset(
   width: (json['width'] as num?)?.toInt() ?? 0,
   height: (json['height'] as num?)?.toInt() ?? 0,
   hasAudio: json['hasAudio'] as bool? ?? false,
+  frameRate: (json['frameRate'] as num?)?.toDouble() ?? 30.0,
 );
 
 Map<String, dynamic> _$MediaAssetToJson(_MediaAsset instance) =>
@@ -27,6 +28,7 @@ Map<String, dynamic> _$MediaAssetToJson(_MediaAsset instance) =>
       'width': instance.width,
       'height': instance.height,
       'hasAudio': instance.hasAudio,
+      'frameRate': instance.frameRate,
     };
 
 const _$MediaKindEnumMap = {

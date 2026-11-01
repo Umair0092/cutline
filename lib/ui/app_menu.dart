@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
+import 'export_dialog.dart';
 import 'file_actions.dart';
 import 'import_actions.dart';
 
@@ -53,6 +54,11 @@ class AppMenu extends ConsumerWidget {
           'Import Video…',
           mod(LogicalKeyboardKey.keyI),
           () => pickAndImportVideos(ref, context),
+        ),
+        MenuCommand(
+          'Export…',
+          mod(LogicalKeyboardKey.keyE),
+          () => showExportFlow(ref, context),
         ),
       ],
       'Edit': [

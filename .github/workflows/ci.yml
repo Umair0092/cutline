@@ -49,5 +49,25 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      - name: Cache FFmpeg
+        uses: actions/cache@v4
+        with:
+          path: third_party/ffmpeg
+          key: ffmpeg-${{ matrix.target }}-${{ hashFiles('tool/build_ffmpeg_macos.sh', 'tool/fetch_ffmpeg_windows.ps1') }}
+      - name: Build LGPL FFmpeg (macOS)
+        if: matrix.target == 'macos'
+        run: '[ -x third_party/ffmpeg/macos/ffmpeg ] || tool/build_ffmpeg_macos.sh'
+      - name: Fetch LGPL FFmpeg (Windows)
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: if (-not (Test-Path third_party/ffmpeg/windows/ffmpeg.exe)) { ./tool/fetch_ffmpeg_windows.ps1 }
       - run: flutter pub get
       - run: flutter build ${{ matrix.target }} --release
+      - name: FFmpeg is inside the app
+        shell: bash
+        run: |
+          if [ "${{ matrix.target }}" = macos ]; then
+            test -x build/macos/Build/Products/Release/cutline.app/Contents/Resources/bin/ffmpeg
+          else
+            test -f build/windows/x64/runner/Release/bin/ffmpeg.exe
+          fi

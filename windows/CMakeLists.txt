@@ -106,3 +106,20 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Bundle the LGPL ffmpeg.exe from tool/fetch_ffmpeg_windows.ps1 next to the
+# app, in bin\. Without it the app falls back to an ffmpeg on PATH.
+set(FFMPEG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ffmpeg/windows")
+if(EXISTS "${FFMPEG_DIR}/ffmpeg.exe")
+  install(FILES "${FFMPEG_DIR}/ffmpeg.exe"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
+    COMPONENT Runtime)
+  if(EXISTS "${FFMPEG_DIR}/LICENSE.txt")
+    install(FILES "${FFMPEG_DIR}/LICENSE.txt"
+      DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
+      RENAME "FFMPEG-LICENSE.txt"
+      COMPONENT Runtime)
+  endif()
+else()
+  message(WARNING "FFmpeg not bundled. Run tool/fetch_ffmpeg_windows.ps1")
+endif()

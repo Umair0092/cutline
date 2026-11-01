@@ -26,6 +26,15 @@ Status: planning. See [docs/ROADMAP.md](docs/ROADMAP.md) and the [issues](../../
 
 You need Flutter 3.47 or newer, and Xcode for the macOS build (Visual Studio with the C++ workload on Windows).
 
+Export needs FFmpeg. The app ships its own LGPL build; make it once before building the app:
+
+```sh
+tool/build_ffmpeg_macos.sh                      # macOS, ~15 min, needs Xcode and nasm
+pwsh tool/fetch_ffmpeg_windows.ps1              # Windows
+```
+
+While developing, a Homebrew `ffmpeg` also works if the bundled one isn't built.
+
 ```sh
 flutter pub get
 flutter run -d macos        # or -d windows

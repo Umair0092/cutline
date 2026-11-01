@@ -22,6 +22,7 @@ abstract class MediaAsset with _$MediaAsset {
     @Default(0) int width,
     @Default(0) int height,
     @Default(false) bool hasAudio,
+    @Default(30.0) double frameRate,
   }) = _MediaAsset;
 
   factory MediaAsset.fromJson(Map<String, dynamic> json) =>

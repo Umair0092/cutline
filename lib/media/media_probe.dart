@@ -53,6 +53,7 @@ Future<MediaAsset> probeVideo(String path) async {
       width: video.w!,
       height: video.h ?? 0,
       hasAudio: tracks.audio.any((t) => t.id != 'auto' && t.id != 'no'),
+      frameRate: (video.fps ?? 0) > 0 ? video.fps! : 30.0,
     );
   } finally {
     await player.dispose();

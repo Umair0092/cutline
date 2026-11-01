@@ -59,22 +59,28 @@ void main() {
               .timeout(const Duration(seconds: 10)),
         ))!;
 
+    /// Polls real time (not fake test time) until [check] passes.
+    Future<void> eventually(String what, bool Function() check) async {
+      for (var i = 0; i < 50 && !check(); i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+      }
+      expect(check(), isTrue, reason: what);
+    }
+
     await playerDuration(20000);
 
     // Play for a moment and check time moves.
     await tester.tap(find.byKey(const Key('play')));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 2)),
+    await eventually('playing', () => player.state.playing);
+    await eventually(
+      'position moves',
+      () => player.state.position > const Duration(seconds: 1),
     );
-    await tester.pump();
-    expect(player.state.playing, isTrue);
-    expect(player.state.position.inMilliseconds, greaterThan(1000));
     await tester.tap(find.byKey(const Key('play')));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 500)),
-    );
-    await tester.pump();
-    expect(player.state.playing, isFalse);
+    await eventually('paused', () => !player.state.playing);
     await saveScreenshot(tester, 'playing');
 
     // Cutting 5s out of the middle makes the player 15s long.
