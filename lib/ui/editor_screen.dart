@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
 import '../timeline/timeline_panel.dart';
+import 'assistant_panel.dart';
 import 'editor_shortcuts.dart';
 import 'preview_pane.dart';
 
@@ -30,11 +31,7 @@ class EditorScreen extends StatelessWidget {
                   VerticalDivider(width: 1, color: colors.outlineVariant),
                   const SizedBox(
                     width: sidebarWidth,
-                    child: EditorPane(
-                      key: Key('sidebar'),
-                      label: 'Assistant',
-                      icon: Icons.auto_awesome,
-                    ),
+                    child: AssistantPanel(key: Key('sidebar')),
                   ),
                 ],
               ),
@@ -44,32 +41,6 @@ class EditorScreen extends StatelessWidget {
               height: timelineHeight,
               child: TimelinePanel(key: Key('timeline')),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder for an area of the editor that isn't built yet.
-class EditorPane extends StatelessWidget {
-  const EditorPane({super.key, required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return ColoredBox(
-      color: colors.surfaceContainerLow,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 32, color: colors.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: colors.onSurfaceVariant)),
           ],
         ),
       ),

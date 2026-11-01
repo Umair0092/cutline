@@ -1,0 +1,115 @@
+import 'package:cutline/ai/api_key_store.dart';
+import 'package:cutline/ai/chat_controller.dart';
+import 'package:cutline/ai/claude_client.dart';
+import 'package:cutline/app.dart';
+import 'package:cutline/preview/preview_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../ai/fake_claude.dart';
+import '../fake_preview.dart';
+
+void main() {
+  late MemoryKeyStore keys;
+  late ScriptedHttp http;
+
+  Future<ProviderContainer> pumpApp(
+    WidgetTester tester, {
+    String? key,
+    List<dynamic> responses = const [],
+  }) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    keys = MemoryKeyStore(key);
+    http = ScriptedHttp([...responses].cast());
+    final container = ProviderContainer(
+      overrides: [
+        previewProvider.overrideWithValue(FakePreviewController()),
+        apiKeyStoreProvider.overrideWithValue(keys),
+        claudeClientFactoryProvider.overrideWithValue(
+          (k) => ClaudeClient(apiKey: k, httpClient: http.client),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const CutlineApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return container;
+  }
+
+  testWidgets('without a key it asks for one, and saving it unlocks chat', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    expect(find.text('Add API Key…'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('open-settings')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('api-key')), 'not-a-key');
+    await tester.tap(find.byKey(const Key('save-key')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('start with sk-ant-'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('api-key')),
+      ' sk-ant-api03-abcdefghijklmnop ',
+    );
+    await tester.tap(find.byKey(const Key('save-key')));
+    await tester.pumpAndSettle();
+    expect(keys.value, 'sk-ant-api03-abcdefghijklmnop');
+    expect(find.text('Try asking'), findsOneWidget);
+  });
+
+  testWidgets('Enter sends, the reply appears, Shift+Enter adds a line', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      key: 'sk-ant-api03-abcdefghijklmnop',
+      responses: [ScriptedHttp.ok(sseText('Happy to help'))],
+    );
+    final input = find.byKey(const Key('chat-input'));
+    await tester.tap(input);
+    await tester.enterText(input, 'first line');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pump();
+    expect(http.requests, isEmpty, reason: 'Shift+Enter does not send');
+
+    await tester.enterText(input, 'Cut the first 5 seconds');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cut the first 5 seconds'), findsOneWidget);
+    expect(find.text('Happy to help'), findsOneWidget);
+    expect(container.read(chatProvider).busy, isFalse);
+    expect(tester.widget<TextField>(input).controller!.text, isEmpty);
+  });
+
+  testWidgets('typing a space or S in the chat box does not play or split', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      key: 'sk-ant-api03-abcdefghijklmnop',
+    );
+    final preview = container.read(previewProvider) as FakePreviewController;
+    await tester.tap(find.byKey(const Key('chat-input')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+    await tester.pump();
+    expect(preview.toggles, 0);
+  });
+}

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../ai/chat_controller.dart';
 import '../editing/project_editor.dart';
+import '../storage/chat_store.dart';
 import '../storage/project_store.dart';
 
 const _projectType = XTypeGroup(
@@ -28,6 +30,7 @@ class FileActions {
   Future<void> newProject() async {
     if (!await _confirmDiscard()) return;
     _editor.newProject();
+    ref.read(chatProvider.notifier).clear();
   }
 
   Future<void> open() async {
@@ -36,6 +39,7 @@ class FileActions {
     if (path == null) return;
     try {
       _editor.opened(await _store.load(path), path);
+      ref.read(chatProvider.notifier).load(await const ChatStore().load(path));
     } on ProjectFileException catch (e) {
       _showError(e.message);
     }
@@ -73,6 +77,7 @@ class FileActions {
         path,
         previousPath: _state.projectPath,
       );
+      await const ChatStore().save(path, ref.read(chatProvider));
     } on FileSystemException catch (e) {
       _showError('Could not save: ${e.message}');
       return false;

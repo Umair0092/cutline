@@ -5,6 +5,9 @@ import 'package:cutline/preview/preview_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cutline/ai/api_key_store.dart';
+
+import 'ai/fake_claude.dart';
 
 import 'fake_preview.dart';
 import 'fixtures.dart';
@@ -18,7 +21,10 @@ void main() {
     addTearDown(tester.view.reset);
 
     final container = ProviderContainer(
-      overrides: [previewProvider.overrideWithValue(FakePreviewController())],
+      overrides: [
+        apiKeyStoreProvider.overrideWithValue(MemoryKeyStore()),
+        previewProvider.overrideWithValue(FakePreviewController()),
+      ],
     );
     addTearDown(container.dispose);
     container

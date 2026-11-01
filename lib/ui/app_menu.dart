@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editing/project_editor.dart';
 import 'export_dialog.dart';
 import 'file_actions.dart';
+import 'editor_shortcuts.dart';
 import 'import_actions.dart';
+import 'settings_dialog.dart';
 
 /// One menu command, shown in the native macOS menu bar or an in-window
 /// menu bar on Windows.
@@ -60,17 +62,23 @@ class AppMenu extends ConsumerWidget {
           mod(LogicalKeyboardKey.keyE),
           () => showExportFlow(ref, context),
         ),
+        if (defaultTargetPlatform != TargetPlatform.macOS)
+          MenuCommand(
+            'Settings…',
+            mod(LogicalKeyboardKey.comma),
+            () => showSettings(context),
+          ),
       ],
       'Edit': [
         MenuCommand(
           state.canUndo ? 'Undo ${state.undoLabel}' : 'Undo',
           mod(LogicalKeyboardKey.keyZ),
-          state.canUndo ? editor.undo : null,
+          () => _undoOrTextUndo(editor.undo, redo: false),
         ),
         MenuCommand(
           state.canRedo ? 'Redo ${state.redoLabel}' : 'Redo',
           mod(LogicalKeyboardKey.keyZ, shift: true),
-          state.canRedo ? editor.redo : null,
+          () => _undoOrTextUndo(editor.redo, redo: true),
         ),
       ],
     };
@@ -133,4 +141,20 @@ class AppMenu extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The native macOS menu catches Cmd+Z before a text field sees it, so while
+/// typing, Undo/Redo go to the text field instead of the project.
+void _undoOrTextUndo(VoidCallback projectAction, {required bool redo}) {
+  final focus = FocusManager.instance.primaryFocus?.context;
+  if (isTyping() && focus != null) {
+    Actions.maybeInvoke(
+      focus,
+      redo
+          ? const RedoTextIntent(SelectionChangedCause.keyboard)
+          : const UndoTextIntent(SelectionChangedCause.keyboard),
+    );
+    return;
+  }
+  projectAction();
 }
