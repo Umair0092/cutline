@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
 import '../ai/chat_controller.dart';
+import '../editing/project_editor.dart';
 import 'settings_dialog.dart';
 
 /// The chat sidebar: messages, a box to type in, and send/stop.
@@ -98,7 +99,10 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
                     controller: _scroll,
                     padding: const EdgeInsets.all(12),
                     children: [
-                      for (final e in chat.entries) _Bubble(entry: e),
+                      for (var i = 0; i < chat.entries.length; i++)
+                        chat.entries[i].role == ChatRole.change
+                            ? _ChangeCard(index: i, entry: chat.entries[i])
+                            : _Bubble(entry: chat.entries[i]),
                       if (chat.streamingText != null)
                         _Bubble(
                           entry: ChatEntry(
@@ -196,6 +200,74 @@ class _Bubble extends StatelessWidget {
             color: isUser ? colors.onPrimaryContainer : colors.onSurface,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// What the assistant changed, with an Undo button while it's still the
+/// latest edit.
+class _ChangeCard extends ConsumerWidget {
+  const _ChangeCard({required this.index, required this.entry});
+
+  final int index;
+  final ChatEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Rebuild when the project changes, since that decides if Undo works.
+    ref.watch(projectEditorProvider);
+    final canUndo = ref.read(chatProvider.notifier).canUndoChange(index);
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: Key('change-$index'),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            entry.undone ? Icons.undo : Icons.check_circle_outline,
+            size: 16,
+            color: entry.undone ? colors.onSurfaceVariant : colors.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final c in entry.changes)
+                  Text(
+                    c,
+                    style: text.bodySmall?.copyWith(
+                      decoration: entry.undone
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                if (entry.undone)
+                  Text(
+                    'Undone',
+                    style: text.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (canUndo)
+            TextButton(
+              key: Key('undo-change-$index'),
+              onPressed: () =>
+                  ref.read(chatProvider.notifier).undoChange(index),
+              child: const Text('Undo'),
+            ),
+        ],
       ),
     );
   }

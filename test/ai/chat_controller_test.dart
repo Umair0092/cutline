@@ -1,9 +1,11 @@
 import 'package:cutline/ai/api_key_store.dart';
 import 'package:cutline/ai/chat_controller.dart';
 import 'package:cutline/ai/claude_client.dart';
+import 'package:cutline/preview/preview_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../fake_preview.dart';
 import 'fake_claude.dart';
 
 void main() {
@@ -16,6 +18,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         apiKeyStoreProvider.overrideWithValue(MemoryKeyStore(key)),
+        previewProvider.overrideWithValue(FakePreviewController()),
         claudeClientFactoryProvider.overrideWithValue(
           (k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),

@@ -159,6 +159,26 @@ class SplitAt extends EditCommand {
   }
 }
 
+class SetClipVolume extends EditCommand {
+  const SetClipVolume(this.clipId, this.volume);
+  final String clipId;
+  final double volume;
+
+  @override
+  String get label => volume == 0 ? 'Mute clip' : 'Change clip volume';
+
+  @override
+  Project apply(Project project) {
+    final clip = _clip(project, clipId);
+    if (volume < 0 || volume > 2) {
+      throw EditException('Volume must be between 0 and 2.');
+    }
+    return project.copyWith(
+      clips: _replaceClip(project, clipId, [clip.copyWith(volume: volume)]),
+    );
+  }
+}
+
 class MoveClip extends EditCommand {
   const MoveClip(this.clipId, this.toIndex);
   final String clipId;
