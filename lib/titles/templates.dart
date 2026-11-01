@@ -68,6 +68,9 @@ abstract class TitleTemplate {
   Duration get defaultDuration;
   List<TemplateField> get fields;
 
+  /// The colour field a saved brand colour fills in, if any.
+  String? get brandField;
+
   void paint(Canvas canvas, Size size, double t, double total, TitleValues v);
 }
 
@@ -137,6 +140,9 @@ void _drawText(
 
 class CleanCard extends TitleTemplate {
   const CleanCard();
+
+  @override
+  String? get brandField => 'accent';
 
   @override
   String get id => 'clean-card';
@@ -218,6 +224,9 @@ class BoldKinetic extends TitleTemplate {
   const BoldKinetic();
 
   @override
+  String? get brandField => 'background';
+
+  @override
   String get id => 'bold-kinetic';
   @override
   String get name => 'Bold kinetic text';
@@ -293,6 +302,9 @@ class BoldKinetic extends TitleTemplate {
 
 class LowerThird extends TitleTemplate {
   const LowerThird();
+
+  @override
+  String? get brandField => 'barColor';
 
   @override
   String get id => 'lower-third';
@@ -375,6 +387,9 @@ class LowerThird extends TitleTemplate {
 
 class LogoReveal extends TitleTemplate {
   const LogoReveal();
+
+  @override
+  String? get brandField => 'accent';
 
   @override
   String get id => 'logo-reveal';

@@ -2,8 +2,33 @@ import 'dart:convert';
 
 import '../editing/commands.dart';
 import '../editing/edit_command.dart';
+import '../model/media_asset.dart';
 import '../model/project.dart';
+import '../model/title_item.dart';
+import '../model/video_clip.dart';
+import '../settings/preferences.dart';
+import '../titles/templates.dart';
 import 'project_summary.dart';
+
+/// What tools need besides the project.
+class ToolContext {
+  const ToolContext({
+    this.renderIntro,
+    this.playhead = Duration.zero,
+    this.preferences = const Preferences(),
+  });
+
+  /// Renders an intro clip for "before the video" titles. Null where
+  /// rendering isn't possible (then those requests fail politely).
+  final Future<MediaAsset> Function(
+    Project project,
+    TitleSpec spec, {
+    String? id,
+  })?
+  renderIntro;
+  final Duration playhead;
+  final Preferences preferences;
+}
 
 /// What happened when the assistant called a tool.
 class ToolOutcome {
@@ -39,6 +64,14 @@ class _BadInput implements Exception {
 /// edits.
 class EditToolbox {
   const EditToolbox();
+
+  static const _fieldsSchema = {
+    'type': 'object',
+    'description':
+        'Template fields by key, e.g. {"title": "Weekly Rails Tips", '
+        '"accent": "#00B894", "font": "Bebas Neue"}. Colours are #RRGGBB.',
+    'additionalProperties': {'type': 'string'},
+  };
 
   static const _timeSchema = {
     'type': 'number',
@@ -120,6 +153,55 @@ class EditToolbox {
       ['name'],
     ),
     _tool(
+      'add_title',
+      'Add an intro or title. "before" puts a full-screen card before the '
+          'video (only full-screen templates); "over" draws it over the '
+          'video from `start`. Fields you leave out use the user\'s saved '
+          'name and brand colour, then the template defaults.',
+      {
+        'template': {
+          'type': 'string',
+          'enum': [for (final t in titleTemplates) t.id],
+        },
+        'placement': {
+          'type': 'string',
+          'enum': ['before', 'over'],
+        },
+        'start': {
+          ..._timeSchema,
+          'description': 'For "over": timeline seconds where it appears.',
+        },
+        'duration': {'type': 'number', 'minimum': 2, 'maximum': 10},
+        'fields': _fieldsSchema,
+      },
+      ['template', 'placement'],
+    ),
+    _tool(
+      'edit_title',
+      'Change an existing title (title_id from "titles") or intro clip '
+          '(clip_id of a clip with "intro"). Only the fields you pass change.',
+      {
+        'title_id': {'type': 'string'},
+        'clip_id': {'type': 'string'},
+        'fields': _fieldsSchema,
+        'duration': {'type': 'number', 'minimum': 2, 'maximum': 10},
+        'start': {
+          ..._timeSchema,
+          'description': 'New start, for titles over the video.',
+        },
+      },
+      [],
+    ),
+    _tool(
+      'remove_title',
+      'Remove a title that is drawn over the video. (An intro before the '
+          'video is a clip: use delete_clip.)',
+      {
+        'title_id': {'type': 'string'},
+      },
+      ['title_id'],
+    ),
+    _tool(
       'seek',
       'Move the playhead to a time so the user can look at that moment. '
           'Not an edit.',
@@ -129,12 +211,13 @@ class EditToolbox {
   ];
 
   /// Runs one tool call against the working project.
-  ToolOutcome run(
+  Future<ToolOutcome> run(
     String name,
     Map<String, dynamic> input,
     Project project, {
     String? invalidJson,
-  }) {
+    ToolContext context = const ToolContext(),
+  }) async {
     if (invalidJson != null) {
       return ToolOutcome(
         project: project,
@@ -143,7 +226,12 @@ class EditToolbox {
       );
     }
     try {
-      final (command, seekTo) = _commandFor(name, input, project);
+      final (command, seekTo) = await _commandFor(
+        name,
+        input,
+        project,
+        context,
+      );
       if (command == null) {
         return ToolOutcome(
           project: project,
@@ -164,14 +252,18 @@ class EditToolbox {
       return ToolOutcome(project: project, isError: true, result: e.message);
     } on EditException catch (e) {
       return ToolOutcome(project: project, isError: true, result: e.message);
+    } on Exception catch (e) {
+      // Rendering an intro can fail (e.g. FFmpeg missing).
+      return ToolOutcome(project: project, isError: true, result: '$e');
     }
   }
 
-  (EditCommand?, Duration?) _commandFor(
+  Future<(EditCommand?, Duration?)> _commandFor(
     String name,
     Map<String, dynamic> input,
     Project project,
-  ) {
+    ToolContext context,
+  ) async {
     final allowed = {
       for (final d in definitions)
         d['name'] as String: ((d['input_schema'] as Map)['properties'] as Map)
@@ -209,10 +301,162 @@ class EditToolbox {
         null,
       ),
       'rename_project' => (RenameProject(_string(input, 'name')), null),
+      'add_title' => (await _addTitle(input, project, context), null),
+      'edit_title' => (await _editTitle(input, project, context), null),
+      'remove_title' => (RemoveTitle(_string(input, 'title_id')), null),
       'seek' => (null, _clampToProject(_time(input, 'time'), project)),
       _ => throw _BadInput('Unknown tool "$name".'),
     };
   }
+
+  Future<EditCommand> _addTitle(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final template = templateById(_string(input, 'template'))!;
+    final placement = _string(input, 'placement');
+    final fields = _fields(input, template) ?? {};
+    // Fill in the user's saved name and brand colour where not given.
+    final prefs = context.preferences;
+    if (prefs.yourName.isNotEmpty &&
+        template.fields.any((f) => f.key == 'name') &&
+        !fields.containsKey('name')) {
+      fields['name'] = prefs.yourName;
+    }
+    final brand = template.brandField;
+    if (prefs.brandColor.isNotEmpty &&
+        brand != null &&
+        !fields.containsKey(brand)) {
+      fields[brand] = prefs.brandColor;
+    }
+    final spec = TitleSpec(
+      templateId: template.id,
+      fields: fields,
+      duration: input.containsKey('duration')
+          ? _seconds(_number(input, 'duration', 2, 10))
+          : template.defaultDuration,
+    );
+
+    if (placement == 'over') {
+      return AddTitle(
+        TitleItem(
+          id: newId(),
+          spec: spec,
+          start: input.containsKey('start')
+              ? _time(input, 'start')
+              : Duration.zero,
+        ),
+      );
+    }
+    if (placement != 'before') {
+      throw _BadInput('"placement" must be "before" or "over".');
+    }
+    if (!template.fullFrame) {
+      throw _BadInput(
+        '${template.id} is see-through, so it can only go "over" the video.',
+      );
+    }
+    final render = context.renderIntro;
+    if (render == null) throw _BadInput('Intros can\'t be rendered here.');
+    final media = await render(project, spec);
+    return Batch('Add intro', [
+      AddMedia(media),
+      AddClip(
+        VideoClip(
+          id: newId(),
+          mediaId: media.id,
+          sourceStart: Duration.zero,
+          sourceEnd: media.duration,
+        ),
+        index: 0,
+      ),
+    ]);
+  }
+
+  Future<EditCommand> _editTitle(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final titleId = input['title_id'];
+    final clipId = input['clip_id'];
+    if ((titleId == null) == (clipId == null)) {
+      throw _BadInput('Pass exactly one of "title_id" or "clip_id".');
+    }
+
+    TitleSpec merge(TitleSpec spec) {
+      final template = templateById(spec.templateId)!;
+      return spec.copyWith(
+        fields: {...spec.fields, ...?_fields(input, template)},
+        duration: input.containsKey('duration')
+            ? _seconds(_number(input, 'duration', 2, 10))
+            : spec.duration,
+      );
+    }
+
+    if (titleId != null) {
+      final title = project.titles.where((t) => t.id == titleId).firstOrNull;
+      if (title == null) throw _BadInput('There is no title "$titleId".');
+      return UpdateTitle(
+        title.id,
+        spec: merge(title.spec),
+        start: input.containsKey('start') ? _time(input, 'start') : null,
+      );
+    }
+
+    final clip = project.clips.where((c) => c.id == clipId).firstOrNull;
+    final media = clip == null ? null : project.mediaById(clip.mediaId);
+    if (media?.title == null) {
+      throw _BadInput('"$clipId" is not an intro clip.');
+    }
+    if (input.containsKey('start')) {
+      throw _BadInput(
+        'An intro before the video has no start time; use move_clip.',
+      );
+    }
+    final render = context.renderIntro;
+    if (render == null) throw _BadInput('Intros can\'t be rendered here.');
+    return ReplaceGeneratedMedia(
+      await render(project, merge(media!.title!), id: media.id),
+    );
+  }
+
+  /// Checks `fields` against the template: known keys, valid colours and
+  /// fonts.
+  Map<String, String>? _fields(
+    Map<String, dynamic> input,
+    TitleTemplate template,
+  ) {
+    final raw = input['fields'];
+    if (raw == null) return null;
+    if (raw is! Map<String, dynamic>) {
+      throw _BadInput('"fields" must be an object.');
+    }
+    final out = <String, String>{};
+    for (final MapEntry(:key, :value) in raw.entries) {
+      final field = template.fields.where((f) => f.key == key).firstOrNull;
+      if (field == null) {
+        throw _BadInput(
+          '${template.id} has no field "$key". Its fields: '
+          '${template.fields.map((f) => f.key).join(', ')}.',
+        );
+      }
+      if (value is! String) throw _BadInput('Field "$key" must be a string.');
+      if (field.kind == FieldKind.color && parseHexColor(value) == null) {
+        throw _BadInput('Field "$key" must be a colour like #6C5CE7.');
+      }
+      if (field.kind == FieldKind.font && !titleFonts.contains(value)) {
+        throw _BadInput(
+          'Field "$key" must be one of: ${titleFonts.join(', ')}.',
+        );
+      }
+      out[key] = field.kind == FieldKind.color ? value.toUpperCase() : value;
+    }
+    return out;
+  }
+
+  Duration _seconds(double s) => Duration(microseconds: (s * 1e6).round());
 
   Duration _clampToProject(Duration t, Project p) =>
       t > p.duration ? p.duration : t;

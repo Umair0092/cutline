@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
+import '../settings/preferences.dart';
+import '../titles/templates.dart';
 
 Future<void> showSettings(BuildContext context) =>
     showDialog<void>(context: context, builder: (_) => const SettingsDialog());
@@ -15,16 +17,51 @@ class SettingsDialog extends ConsumerStatefulWidget {
 
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   final _key = TextEditingController();
+  final _name = TextEditingController();
+  final _brand = TextEditingController();
   bool _show = false;
   String? _error;
+  String? _brandError;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(preferencesProvider.future).then((p) {
+      if (!mounted) return;
+      _name.text = p.yourName;
+      _brand.text = p.brandColor;
+    }, onError: (_) {});
+  }
 
   @override
   void dispose() {
     _key.dispose();
+    _name.dispose();
+    _brand.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final brand = _brand.text.trim();
+    if (brand.isNotEmpty && parseHexColor(brand) == null) {
+      setState(() => _brandError = 'Use a colour like #6C5CE7.');
+      return;
+    }
+    await ref
+        .read(preferencesProvider.notifier)
+        .save(
+          Preferences(
+            yourName: _name.text.trim(),
+            brandColor: brand.isEmpty ? '' : toHex(parseHexColor(brand)!),
+          ),
+        );
+    // The key is optional here: saving only your name is fine once a key
+    // is stored.
+    final saved = ref.read(apiKeyProvider).value;
+    if (_key.text.trim().isEmpty && saved != null) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
     if (!looksLikeApiKey(_key.text)) {
       setState(
         () => _error =
@@ -78,6 +115,43 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               ),
               onChanged: (_) => setState(() => _error = null),
               onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 20),
+            Text('For intros', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              'The assistant uses these so you don\'t have to repeat them.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('your-name'),
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'Your name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 150,
+                  child: TextField(
+                    key: const Key('brand-color'),
+                    controller: _brand,
+                    decoration: InputDecoration(
+                      labelText: 'Brand colour',
+                      hintText: '#6C5CE7',
+                      errorText: _brandError,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() => _brandError = null),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

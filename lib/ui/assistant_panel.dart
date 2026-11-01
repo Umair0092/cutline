@@ -74,13 +74,14 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
             child: Row(
               children: [
                 const SizedBox(width: 12),
-                Icon(Icons.auto_awesome, size: 16, color: colors.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'Assistant',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Expanded(
+                  child: Text(
+                    'Edits are applied as one undo step per message.',
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colors.onSurfaceVariant),
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   tooltip: 'Settings',
                   icon: const Icon(Icons.settings_outlined, size: 18),

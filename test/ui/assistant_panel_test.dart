@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:cutline/ai/api_key_store.dart';
 import 'package:cutline/ai/chat_controller.dart';
 import 'package:cutline/ai/claude_client.dart';
 import 'package:cutline/app.dart';
+import 'package:cutline/transcript/transcription_service.dart';
 import 'package:cutline/preview/preview_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +32,9 @@ void main() {
       overrides: [
         previewProvider.overrideWithValue(FakePreviewController()),
         apiKeyStoreProvider.overrideWithValue(keys),
+        supportDirProvider.overrideWith(
+          (_) async => Directory.systemTemp.createTempSync('cutline_ui').path,
+        ),
         claudeClientFactoryProvider.overrideWithValue(
           (k) => ClaudeClient(apiKey: k, httpClient: http.client),
         ),
@@ -87,9 +93,16 @@ void main() {
 
     await tester.enterText(input, 'Cut the first 5 seconds');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
+    for (
+      var i = 0;
+      i < 50 && http.requests.isEmpty | container.read(chatProvider).busy;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
 
     expect(find.text('Cut the first 5 seconds'), findsOneWidget);

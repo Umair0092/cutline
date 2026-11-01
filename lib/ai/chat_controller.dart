@@ -5,7 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
+import '../model/media_asset.dart';
 import '../model/project.dart';
+import '../model/title_item.dart';
+import '../settings/preferences.dart';
+import '../titles/title_actions.dart';
 import '../preview/preview_controller.dart';
 import '../transcript/timeline_transcript.dart';
 import 'api_key_store.dart';
@@ -111,6 +115,21 @@ class ChatState {
   };
 }
 
+/// Makes intro clips for the assistant's "before the video" titles. Tests
+/// override this so they don't need FFmpeg.
+final introRendererProvider =
+    Provider<
+      Future<MediaAsset> Function(Project, TitleSpec, {String? id})? Function(
+        String?,
+      )
+    >(
+      (_) =>
+          (workPath) => workPath == null
+          ? null
+          : (project, spec, {id}) =>
+                renderIntroMedia(project, workPath, spec, id: id),
+    );
+
 /// Builds the client for a key. Tests override this with a fake.
 final claudeClientFactoryProvider = Provider<ClaudeClient Function(String)>(
   (_) =>
@@ -121,6 +140,8 @@ const systemPrompt = '''
 You are the editing assistant inside Cutline, a video editor. The user talks to you in a narrow side panel while editing a video.
 
 Each user message starts with a <project_state> block: the current project as JSON. Times are timeline seconds. If the video has been transcribed, "transcript" lists what is said and when (already on the timeline, after cuts), so you can find moments by what's said: "remove the part where I say um, let me restart" means find that line and cut its start to end. The main track is a list of clips that play back to back; cutting closes the gap, so times after a cut move earlier. Tool results include the updated project; use those times for any further edits in the same turn.
+
+Titles and intros: templates are clean-card (title + subtitle card), bold-kinetic (big words popping in, plus a name), lower-third (name and role in a bar, see-through, only "over" the video) and logo-reveal (initials in a circle, then name and subtitle). "Add an intro" usually means a full-screen card "before" the video; a name tag while someone talks is a lower-third "over" the video. "you" in the project state holds the user's saved name and brand colour; use them, and if an intro needs a name you don't have, ask for it. Titles over the video are listed in "titles"; intro clips have "intro" on their clip. For "make it shorter", "use blue", or "change the subtitle", call edit_title with only what changes.
 
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
 
@@ -171,6 +192,17 @@ class ChatController extends Notifier<ChatState> {
     final editor = ref.read(projectEditorProvider.notifier);
     final start = ref.read(projectEditorProvider).project;
     final playhead = ref.read(previewProvider).position;
+    // Saved name/brand colour; never let reading them hold up the chat.
+    final prefs = await ref
+        .read(preferencesProvider.future)
+        .timeout(const Duration(seconds: 2))
+        .catchError((Object _) => const Preferences());
+    final workPath = ref.read(projectEditorProvider).workPath;
+    final toolContext = ToolContext(
+      playhead: playhead,
+      preferences: prefs,
+      renderIntro: ref.read(introRendererProvider)(workPath),
+    );
     final before = state;
     final turnHistory = <Map<String, dynamic>>[
       {
@@ -180,7 +212,7 @@ class ChatController extends Notifier<ChatState> {
             'type': 'text',
             'text':
                 '<project_state>\n'
-                '${jsonEncode(projectSummary(start, playhead: playhead, transcript: ref.read(timelineTranscriptProvider)))}\n'
+                '${jsonEncode(projectSummary(start, playhead: playhead, transcript: ref.read(timelineTranscriptProvider), preferences: prefs))}\n'
                 '</project_state>',
           },
           {'type': 'text', 'text': message},
@@ -235,12 +267,14 @@ class ChatController extends Notifier<ChatState> {
 
         final results = <Map<String, dynamic>>[];
         for (final call in calls) {
-          final outcome = _toolbox.run(
+          final outcome = await _toolbox.run(
             call['name'] as String,
             call['input'] as Map<String, dynamic>? ?? const {},
             working,
             invalidJson: call['_invalidJson'] as String?,
+            context: toolContext,
           );
+          if (turn != _turn) return; // stopped while a tool ran
           working = outcome.project;
           if (outcome.command != null) commands.add(outcome.command!);
           seekTo = outcome.seekTo ?? seekTo;

@@ -54,6 +54,35 @@ void main() {
     });
   });
 
+  test('inserting a clip moves later overlays and audio along', () {
+    final p =
+        AddClip(
+          VideoClip(id: 'x', mediaId: 'm1', sourceStart: s(0), sourceEnd: s(3)),
+          index: 1,
+        ).apply(
+          threeClips().copyWith(
+            overlays: [
+              OverlayItem(
+                id: 'early',
+                mediaId: 'm1',
+                start: s(2),
+                duration: s(1),
+              ),
+              OverlayItem(
+                id: 'late',
+                mediaId: 'm1',
+                start: s(15),
+                duration: s(1),
+              ),
+            ],
+          ),
+        );
+    expect(
+      {for (final o in p.overlays) o.id: o.start},
+      {'early': s(2), 'late': s(18)},
+    );
+  });
+
   test('RemoveClip and MoveClip', () {
     var p = const RemoveClip('b').apply(threeClips());
     expect(p.clips.map((c) => c.id), ['a', 'c']);

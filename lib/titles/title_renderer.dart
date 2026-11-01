@@ -48,7 +48,10 @@ class TitleRenderer {
       'lavfi',
       '-i',
       'anullsrc=r=48000:cl=stereo',
-      '-shortest',
+      // Exactly the title's length: -shortest alone leaves ~0.1 s of extra
+      // AAC padding, which would shift everything after the intro.
+      '-t',
+      (spec.duration.inMicroseconds / 1e6).toStringAsFixed(3),
       '-c:v',
       encoder.ffmpegName,
       ...encoder.args(8000000),

@@ -84,7 +84,22 @@ class AddClip extends EditCommand {
     if (i < 0 || i > project.clips.length) {
       throw EditException('Clip position $i is out of range.');
     }
-    return project.copyWith(clips: [...project.clips]..insert(i, clip));
+    // Things placed on the timeline after the insert point move along with
+    // the video they belong to.
+    final at = i == project.clips.length
+        ? project.duration
+        : project.clipStarts[i];
+    Duration shift(Duration t) => t >= at ? t + clip.duration : t;
+    return project.copyWith(
+      clips: [...project.clips]..insert(i, clip),
+      overlays: [
+        for (final o in project.overlays) o.copyWith(start: shift(o.start)),
+      ],
+      audio: [for (final a in project.audio) a.copyWith(start: shift(a.start))],
+      titles: [
+        for (final t in project.titles) t.copyWith(start: shift(t.start)),
+      ],
+    );
   }
 }
 
@@ -470,4 +485,17 @@ class ReplaceGeneratedMedia extends EditCommand {
       ],
     );
   }
+}
+
+/// Several commands applied as one, with one label.
+class Batch extends EditCommand {
+  const Batch(this.label, this.commands);
+
+  @override
+  final String label;
+  final List<EditCommand> commands;
+
+  @override
+  Project apply(Project project) =>
+      commands.fold(project, (p, c) => c.apply(p));
 }

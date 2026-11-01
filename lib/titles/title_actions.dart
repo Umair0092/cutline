@@ -37,15 +37,16 @@ enum TitlePlacement {
 /// Renders an intro clip into the project's `assets/` folder and returns
 /// its media entry (same [id] when replacing).
 Future<MediaAsset> renderIntroMedia(
-  EditorState state,
+  Project project,
+  String workPath,
   TitleSpec spec, {
   String? id,
 }) async {
   final ffmpeg = const FfmpegLocator().find();
   if (ffmpeg == null) throw ExportException('FFmpeg is missing.');
-  final f = projectTitleFormat(state.project);
+  final f = projectTitleFormat(project);
   final name = 'intro-${newId()}.mp4';
-  final dir = Directory(p.join(state.workPath!, ProjectStore.assetsDir))
+  final dir = Directory(p.join(workPath, ProjectStore.assetsDir))
     ..createSync(recursive: true);
   await TitleRenderer(ffmpeg).renderClip(
     spec,
@@ -79,7 +80,8 @@ Future<void> addTitle(
     editor.run(AddTitle(TitleItem(id: newId(), spec: spec, start: start)));
     return;
   }
-  final media = await renderIntroMedia(ref.read(projectEditorProvider), spec);
+  final state = ref.read(projectEditorProvider);
+  final media = await renderIntroMedia(state.project, state.workPath!, spec);
   editor.runAll('Add intro', [
     AddMedia(media),
     AddClip(
@@ -107,8 +109,10 @@ Future<void> updateIntroClip(
   String mediaId,
   TitleSpec spec,
 ) async {
+  final state = ref.read(projectEditorProvider);
   final media = await renderIntroMedia(
-    ref.read(projectEditorProvider),
+    state.project,
+    state.workPath!,
     spec,
     id: mediaId,
   );
