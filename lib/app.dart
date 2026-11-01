@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'ui/app_menu.dart';
 import 'ui/editor_screen.dart';
+import 'ui/splash_screen.dart';
 
 class CutlineApp extends StatelessWidget {
-  const CutlineApp({super.key});
+  const CutlineApp({super.key, this.showSplash = false});
+
+  /// The real app starts with the splash screen; tests go straight to the
+  /// editor.
+  final bool showSplash;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +26,9 @@ class CutlineApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.dark,
-      home: const AppMenu(child: EditorScreen()),
+      home: showSplash
+          ? const StartupGate(child: AppMenu(child: EditorScreen()))
+          : const AppMenu(child: EditorScreen()),
     );
   }
 }

@@ -7,5 +7,5 @@ import 'app.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  runApp(const ProviderScope(child: CutlineApp()));
+  runApp(const ProviderScope(child: CutlineApp(showSplash: true)));
 }
