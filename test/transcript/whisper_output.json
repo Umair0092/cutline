@@ -1,0 +1,210 @@
+{
+ "result": {
+  "language": "en"
+ },
+ "transcription": [
+  {
+   "offsets": {
+    "from": 0,
+    "to": 50
+   },
+   "text": ""
+  },
+  {
+   "offsets": {
+    "from": 50,
+    "to": 340
+   },
+   "text": " Hello"
+  },
+  {
+   "offsets": {
+    "from": 340,
+    "to": 540
+   },
+   "text": " and"
+  },
+  {
+   "offsets": {
+    "from": 540,
+    "to": 1020
+   },
+   "text": " welcome"
+  },
+  {
+   "offsets": {
+    "from": 1020,
+    "to": 1150
+   },
+   "text": " to"
+  },
+  {
+   "offsets": {
+    "from": 1150,
+    "to": 1280
+   },
+   "text": " my"
+  },
+  {
+   "offsets": {
+    "from": 1280,
+    "to": 1920
+   },
+   "text": " channel,"
+  },
+  {
+   "offsets": {
+    "from": 1920,
+    "to": 2180
+   },
+   "text": " today"
+  },
+  {
+   "offsets": {
+    "from": 2180,
+    "to": 2310
+   },
+   "text": " we"
+  },
+  {
+   "offsets": {
+    "from": 2310,
+    "to": 2510
+   },
+   "text": " are"
+  },
+  {
+   "offsets": {
+    "from": 2510,
+    "to": 2990
+   },
+   "text": " talking"
+  },
+  {
+   "offsets": {
+    "from": 2990,
+    "to": 3330
+   },
+   "text": " about"
+  },
+  {
+   "offsets": {
+    "from": 3330,
+    "to": 4230
+   },
+   "text": " deadlines,"
+  },
+  {
+   "offsets": {
+    "from": 4230,
+    "to": 4750
+   },
+   "text": " um,"
+  },
+  {
+   "offsets": {
+    "from": 4750,
+    "to": 4870
+   },
+   "text": " let"
+  },
+  {
+   "offsets": {
+    "from": 4870,
+    "to": 5040
+   },
+   "text": " me"
+  },
+  {
+   "offsets": {
+    "from": 5040,
+    "to": 6080
+   },
+   "text": " restart,"
+  },
+  {
+   "offsets": {
+    "from": 6080,
+    "to": 6450
+   },
+   "text": " okay,"
+  },
+  {
+   "offsets": {
+    "from": 6450,
+    "to": 7020
+   },
+   "text": " deadlines"
+  },
+  {
+   "offsets": {
+    "from": 7020,
+    "to": 7210
+   },
+   "text": " are"
+  },
+  {
+   "offsets": {
+    "from": 7210,
+    "to": 7990
+   },
+   "text": " important"
+  },
+  {
+   "offsets": {
+    "from": 7990,
+    "to": 8220
+   },
+   "text": " because"
+  },
+  {
+   "offsets": {
+    "from": 8220,
+    "to": 8470
+   },
+   "text": " they"
+  },
+  {
+   "offsets": {
+    "from": 8470,
+    "to": 8720
+   },
+   "text": " keep"
+  },
+  {
+   "offsets": {
+    "from": 8720,
+    "to": 9230
+   },
+   "text": " projects"
+  },
+  {
+   "offsets": {
+    "from": 9230,
+    "to": 9730
+   },
+   "text": " moving,"
+  },
+  {
+   "offsets": {
+    "from": 9730,
+    "to": 10300
+   },
+   "text": " thanks"
+  },
+  {
+   "offsets": {
+    "from": 10300,
+    "to": 10310
+   },
+   "text": " for"
+  },
+  {
+   "offsets": {
+    "from": 10310,
+    "to": 10960
+   },
+   "text": " watching."
+  }
+ ]
+}

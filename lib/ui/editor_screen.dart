@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
 import '../timeline/timeline_panel.dart';
-import 'assistant_panel.dart';
+import 'sidebar.dart';
+import 'transcript_panel.dart';
 import 'editor_shortcuts.dart';
 import 'preview_pane.dart';
 
@@ -19,29 +20,31 @@ class EditorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      body: EditorShortcuts(
-        child: Column(
-          children: [
-            const ProjectTitleBar(),
-            Divider(height: 1, color: colors.outlineVariant),
-            Expanded(
-              child: Row(
-                children: [
-                  const Expanded(child: PreviewPane(key: Key('preview'))),
-                  VerticalDivider(width: 1, color: colors.outlineVariant),
-                  const SizedBox(
-                    width: sidebarWidth,
-                    child: AssistantPanel(key: Key('sidebar')),
-                  ),
-                ],
+      body: AutoTranscribe(
+        child: EditorShortcuts(
+          child: Column(
+            children: [
+              const ProjectTitleBar(),
+              Divider(height: 1, color: colors.outlineVariant),
+              Expanded(
+                child: Row(
+                  children: [
+                    const Expanded(child: PreviewPane(key: Key('preview'))),
+                    VerticalDivider(width: 1, color: colors.outlineVariant),
+                    const SizedBox(
+                      width: sidebarWidth,
+                      child: Sidebar(key: Key('sidebar')),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Divider(height: 1, color: colors.outlineVariant),
-            const SizedBox(
-              height: timelineHeight,
-              child: TimelinePanel(key: Key('timeline')),
-            ),
-          ],
+              Divider(height: 1, color: colors.outlineVariant),
+              const SizedBox(
+                height: timelineHeight,
+                child: TimelinePanel(key: Key('timeline')),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -245,7 +245,7 @@
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				1ED35DC01EC285ED77F94088 /* [CP] Embed Pods Frameworks */,
-				810B9086E1D6D69D36D7AD87 /* Bundle FFmpeg */,
+				810B9086E1D6D69D36D7AD87 /* Bundle FFmpeg and whisper */,
 			);
 			buildRules = (
 			);
@@ -433,7 +433,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		810B9086E1D6D69D36D7AD87 /* Bundle FFmpeg */ = {
+		810B9086E1D6D69D36D7AD87 /* Bundle FFmpeg and whisper */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -443,14 +443,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Bundle FFmpeg";
+			name = "Bundle FFmpeg and whisper";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Copies the LGPL ffmpeg/ffprobe built by tool/build_ffmpeg_macos.sh into\n# the app. Skipped (with a warning) if they have not been built, in which\n# case the app falls back to a Homebrew ffmpeg.\nSRC=\"$SRCROOT/../third_party/ffmpeg/macos\"\nDEST=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/bin\"\nif [ ! -x \"$SRC/ffmpeg\" ]; then\n  echo \"warning: FFmpeg not bundled. Run tool/build_ffmpeg_macos.sh\"\n  exit 0\nfi\nmkdir -p \"$DEST\"\nfor tool in ffmpeg ffprobe; do\n  cp \"$SRC/$tool\" \"$DEST/$tool\"\n  if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"$EXPANDED_CODE_SIGN_IDENTITY\" != \"-\" ]; then\n    codesign --force --options runtime --timestamp --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$DEST/$tool\"\n  else\n    codesign --force --sign - \"$DEST/$tool\"\n  fi\ndone\n";
+			shellScript = "# Copies the helper tools into the app and signs them:\n#   third_party/ffmpeg/macos   (tool/build_ffmpeg_macos.sh)  ffmpeg, ffprobe\n#   third_party/whisper/macos  (tool/build_whisper_macos.sh) whisper-cli\n# Missing tools are skipped with a warning; the app then looks for\n# Homebrew copies instead.\nDEST=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/bin\"\nmkdir -p \"$DEST\"\nsign() {\n  if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"$EXPANDED_CODE_SIGN_IDENTITY\" != \"-\" ]; then\n    codesign --force --options runtime --timestamp --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$1\"\n  else\n    codesign --force --sign - \"$1\"\n  fi\n}\nbundle() {\n  if [ ! -x \"$1/$2\" ]; then\n    echo \"warning: $2 not bundled. Run the matching tool/build_*_macos.sh\"\n    return\n  fi\n  cp \"$1/$2\" \"$DEST/$2\"\n  sign \"$DEST/$2\"\n}\nbundle \"$SRCROOT/../third_party/ffmpeg/macos\" ffmpeg\nbundle \"$SRCROOT/../third_party/ffmpeg/macos\" ffprobe\nbundle \"$SRCROOT/../third_party/whisper/macos\" whisper-cli\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

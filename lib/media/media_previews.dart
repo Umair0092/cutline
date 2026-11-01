@@ -2,12 +2,12 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'ffmpeg.dart';
+import 'media_cache.dart';
 
 /// Thumbnails and a waveform for one source file, for drawing the timeline.
 class MediaPreview {
@@ -65,7 +65,7 @@ class MediaPreviewGenerator {
   static const maxThumbnails = 300;
 
   Future<MediaPreview> load(String path) async {
-    final dir = Directory(p.join(cacheRoot, _cacheKey(path)));
+    final dir = Directory(p.join(cacheRoot, mediaCacheKey(path)));
     final done = File(p.join(dir.path, 'done'));
     if (!done.existsSync()) {
       if (dir.existsSync()) dir.deleteSync(recursive: true);
@@ -74,13 +74,6 @@ class MediaPreviewGenerator {
       done.writeAsStringSync('');
     }
     return _read(dir.path);
-  }
-
-  /// Changes when the file is replaced or edited.
-  String _cacheKey(String path) {
-    final stat = File(path).statSync();
-    final key = '$path|${stat.size}|${stat.modified.millisecondsSinceEpoch}';
-    return sha1.convert(key.codeUnits).toString();
   }
 
   Future<Duration> _duration(String path) async {

@@ -7,6 +7,7 @@ import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
 import '../model/project.dart';
 import '../preview/preview_controller.dart';
+import '../transcript/timeline_transcript.dart';
 import 'api_key_store.dart';
 import 'claude_client.dart';
 import 'edit_tools.dart';
@@ -119,7 +120,7 @@ final claudeClientFactoryProvider = Provider<ClaudeClient Function(String)>(
 const systemPrompt = '''
 You are the editing assistant inside Cutline, a video editor. The user talks to you in a narrow side panel while editing a video.
 
-Each user message starts with a <project_state> block: the current project as JSON. Times are timeline seconds. The main track is a list of clips that play back to back; cutting closes the gap, so times after a cut move earlier. Tool results include the updated project; use those times for any further edits in the same turn.
+Each user message starts with a <project_state> block: the current project as JSON. Times are timeline seconds. If the video has been transcribed, "transcript" lists what is said and when (already on the timeline, after cuts), so you can find moments by what's said: "remove the part where I say um, let me restart" means find that line and cut its start to end. The main track is a list of clips that play back to back; cutting closes the gap, so times after a cut move earlier. Tool results include the updated project; use those times for any further edits in the same turn.
 
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
 
@@ -179,7 +180,7 @@ class ChatController extends Notifier<ChatState> {
             'type': 'text',
             'text':
                 '<project_state>\n'
-                '${jsonEncode(projectSummary(start, playhead: playhead))}\n'
+                '${jsonEncode(projectSummary(start, playhead: playhead, transcript: ref.read(timelineTranscriptProvider)))}\n'
                 '</project_state>',
           },
           {'type': 'text', 'text': message},

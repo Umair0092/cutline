@@ -20,20 +20,20 @@ Status: planning. See [docs/ROADMAP.md](docs/ROADMAP.md) and the [issues](../../
 - Flutter (Dart), one codebase for macOS, Windows and iOS
 - media_kit for playback, FFmpeg for export
 - Claude API (tool use) for turning instructions into edits
-- whisper.cpp for on-device transcription with word timestamps
+- whisper.cpp for on-device transcription with word timestamps (CLI, bundled)
 
 ## Development
 
 You need Flutter 3.47 or newer, and Xcode for the macOS build (Visual Studio with the C++ workload on Windows).
 
-Export needs FFmpeg. The app ships its own LGPL build; make it once before building the app:
+The app ships two helper tools: an LGPL FFmpeg (export, thumbnails) and whisper.cpp (transcripts). Make them once before building the app:
 
 ```sh
-tool/build_ffmpeg_macos.sh                      # macOS, ~15 min, needs Xcode and nasm
-pwsh tool/fetch_ffmpeg_windows.ps1              # Windows
+tool/build_ffmpeg_macos.sh && tool/build_whisper_macos.sh    # macOS, needs Xcode, nasm, cmake
+pwsh tool/fetch_ffmpeg_windows.ps1; pwsh tool/fetch_whisper_windows.ps1   # Windows
 ```
 
-While developing, a Homebrew `ffmpeg` also works if the bundled one isn't built.
+While developing, Homebrew's `ffmpeg` and `whisper-cpp` also work if the bundled ones aren't built.
 
 ```sh
 flutter pub get

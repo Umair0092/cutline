@@ -123,3 +123,15 @@ if(EXISTS "${FFMPEG_DIR}/ffmpeg.exe")
 else()
   message(WARNING "FFmpeg not bundled. Run tool/fetch_ffmpeg_windows.ps1")
 endif()
+
+# Bundle whisper.cpp from tool/fetch_whisper_windows.ps1 (whisper-cli.exe and
+# its DLLs) into bin\, next to ffmpeg.exe.
+set(WHISPER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/whisper/windows")
+if(EXISTS "${WHISPER_DIR}/whisper-cli.exe")
+  file(GLOB WHISPER_FILES "${WHISPER_DIR}/*.exe" "${WHISPER_DIR}/*.dll")
+  install(FILES ${WHISPER_FILES}
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
+    COMPONENT Runtime)
+else()
+  message(WARNING "whisper.cpp not bundled. Run tool/fetch_whisper_windows.ps1")
+endif()

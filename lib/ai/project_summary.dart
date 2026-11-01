@@ -1,12 +1,20 @@
 import 'package:path/path.dart' as p;
 
 import '../model/project.dart';
+import '../transcript/transcript.dart';
+
+/// Enough for well over an hour of speech.
+const maxTranscriptLines = 1500;
 
 double _s(Duration d) => (d.inMilliseconds / 1000 * 100).roundToDouble() / 100;
 
 /// A compact JSON view of the project for the assistant. Times are timeline
 /// seconds with two decimals; clip ids are what the tools take.
-Map<String, dynamic> projectSummary(Project project, {Duration? playhead}) {
+Map<String, dynamic> projectSummary(
+  Project project, {
+  Duration? playhead,
+  List<TranscriptLine> transcript = const [],
+}) {
   final starts = project.clipStarts;
   return {
     'name': project.name,
@@ -41,5 +49,15 @@ Map<String, dynamic> projectSummary(Project project, {Duration? playhead}) {
             'end': _s(a.end),
           },
       ],
+    if (transcript.isNotEmpty) ...{
+      'transcript': [
+        for (final line in transcript.take(maxTranscriptLines))
+          {'start': _s(line.start), 'end': _s(line.end), 'text': line.text},
+      ],
+      if (transcript.length > maxTranscriptLines)
+        'transcriptNote':
+            'Only the first $maxTranscriptLines of ${transcript.length} '
+            'lines are shown.',
+    },
   };
 }
