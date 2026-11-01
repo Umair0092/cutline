@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../editing/project_editor.dart';
 
 /// The main editor window: preview on the top left, sidebar on the right,
 /// timeline along the bottom.
@@ -14,6 +17,8 @@ class EditorScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
+          const ProjectTitleBar(),
+          Divider(height: 1, color: colors.outlineVariant),
           Expanded(
             child: Row(
               children: [
@@ -72,6 +77,38 @@ class EditorPane extends StatelessWidget {
             Text(label, style: TextStyle(color: colors.onSurfaceVariant)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shows the project name, and "Edited" when there are unsaved changes.
+class ProjectTitleBar extends ConsumerWidget {
+  const ProjectTitleBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(projectEditorProvider);
+    final theme = Theme.of(context);
+    return Container(
+      height: 36,
+      color: theme.colorScheme.surfaceContainer,
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(state.project.name, style: theme.textTheme.titleSmall),
+          if (state.hasUnsavedChanges) ...[
+            const SizedBox(width: 8),
+            Text(
+              'Edited',
+              key: const Key('edited'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

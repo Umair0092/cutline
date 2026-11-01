@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ui/app_menu.dart';
 import 'ui/editor_screen.dart';
 
 class CutlineApp extends StatelessWidget {
@@ -20,7 +21,7 @@ class CutlineApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.dark,
-      home: const EditorScreen(),
+      home: const AppMenu(child: EditorScreen()),
     );
   }
 }

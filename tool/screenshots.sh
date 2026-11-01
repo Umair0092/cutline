@@ -1,8 +1,6 @@
 #!/bin/sh
-# Runs the integration tests on macOS and copies the screenshots they take
-# into ./screenshots.
+# Runs the integration tests on macOS. Each test can save screenshots of the
+# real app window into ./screenshots.
 set -e
-SCREENSHOTS=1 flutter test integration_test -d macos "$@"
-mkdir -p screenshots
-cp ~/Library/Containers/com.umair0092.cutline/Data/tmp/cutline_screenshots/*.png screenshots/
+SCREENSHOT_DIR="$PWD/screenshots" flutter test integration_test -d macos "$@"
 echo "Screenshots saved to ./screenshots"
