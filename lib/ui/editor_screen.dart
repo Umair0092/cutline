@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../editing/project_editor.dart';
 import '../library/project_library.dart';
+import '../timeline/timeline_painter.dart';
 import '../timeline/timeline_panel.dart';
-import 'sidebar.dart';
-import 'transcript_panel.dart';
 import 'app_menu.dart';
 import 'compact_editor.dart';
-import 'file_actions.dart';
+import 'editor/editor_title_bar.dart';
+import 'editor/resize_divider.dart';
 import 'editor_shortcuts.dart';
-import 'export_dialog.dart';
+import 'file_actions.dart';
 import 'preview_pane.dart';
+import 'sidebar.dart';
+import 'tokens.dart';
+import 'transcript_panel.dart';
 
-/// The main editor window: preview on the top left, sidebar on the right,
-/// timeline along the bottom.
+export 'editor/editor_title_bar.dart' show ProjectTitleBar;
+
+/// The main editor window: the title bar on top, the preview with the
+/// timeline under it on the left, and the sidebar down the right.
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
@@ -38,116 +42,89 @@ class EditorScreen extends ConsumerWidget {
 Future<bool> confirmLeave(WidgetRef ref, BuildContext context) =>
     FileActions(ref, context).confirmDiscard();
 
-class _WideEditor extends StatelessWidget {
+class _WideEditor extends StatefulWidget {
   const _WideEditor();
 
-  static const sidebarWidth = 340.0;
-  static const timelineHeight = 260.0;
+  @override
+  State<_WideEditor> createState() => _WideEditorState();
+}
+
+class _WideEditorState extends State<_WideEditor> {
+  static const _toolbar = 40.0;
+
+  /// Just enough for every track row, and the default.
+  static const minTimeline = TimelineRows.height + _toolbar + 14;
+
+  /// Survives leaving and reopening the editor in one session.
+  static double? _remembered;
+
+  double _timeline = _remembered ?? minTimeline;
+
+  double _sidebarWidth(double width) =>
+      (width * 0.27).clamp(340.0, 420.0).toDouble();
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: Cut.base,
       body: AutoTranscribe(
         child: EditorShortcuts(
           child: Column(
             children: [
               const ProjectTitleBar(),
-              Divider(height: 1, color: colors.outlineVariant),
               Expanded(
-                child: Row(
-                  children: [
-                    const Expanded(child: PreviewPane(key: Key('preview'))),
-                    VerticalDivider(width: 1, color: colors.outlineVariant),
-                    const SizedBox(
-                      width: sidebarWidth,
-                      child: Sidebar(key: Key('sidebar')),
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    // The preview always keeps at least 200 px.
+                    final max = (box.maxHeight - 200).clamp(
+                      minTimeline,
+                      double.infinity,
+                    );
+                    final timeline = _timeline.clamp(minTimeline, max);
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Expanded(
+                                child: PreviewPane(key: Key('preview')),
+                              ),
+                              ResizeDivider(
+                                onDrag: (dy) => setState(() {
+                                  _timeline = _remembered = (timeline - dy)
+                                      .clamp(minTimeline, max);
+                                }),
+                                onReset: () => setState(
+                                  () => _timeline = _remembered = minTimeline,
+                                ),
+                              ),
+                              SizedBox(
+                                height: timeline,
+                                child: const TimelinePanel(
+                                  key: Key('timeline'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          width: _sidebarWidth(box.maxWidth),
+                          decoration: const BoxDecoration(
+                            color: Cut.surface1,
+                            border: Border(
+                              left: BorderSide(color: Cut.strokeSubtle),
+                            ),
+                          ),
+                          child: const Sidebar(key: Key('sidebar')),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
-              Divider(height: 1, color: colors.outlineVariant),
-              const SizedBox(
-                height: timelineHeight,
-                child: TimelinePanel(key: Key('timeline')),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Shows the project name, and "Edited" when there are unsaved changes.
-class ProjectTitleBar extends ConsumerWidget {
-  const ProjectTitleBar({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(projectEditorProvider);
-    final theme = Theme.of(context);
-    final path = state.projectPath;
-    // Edits in the library save themselves, so "Edited" would only worry.
-    final autosaved =
-        path != null &&
-        (ref.watch(projectLibraryProvider).value?.contains(path) ?? false);
-    final canGoBack = Navigator.of(context).canPop();
-    return Container(
-      height: 40,
-      width: double.infinity,
-      color: theme.colorScheme.surfaceContainer,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (canGoBack)
-            Positioned(
-              left: 8,
-              child: TextButton.icon(
-                key: const Key('back-to-edits'),
-                onPressed: () => leaveEditor(ref, context),
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Your edits'),
-              ),
-            ),
-          if (state.project.clips.isNotEmpty)
-            Positioned(
-              right: 8,
-              child: FilledButton.icon(
-                key: const Key('export-button'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 30),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                ),
-                onPressed: () => showExportFlow(ref, context),
-                icon: const Icon(Icons.ios_share, size: 16),
-                label: const Text('Export'),
-              ),
-            ),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => renameProjectFlow(ref, context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(state.project.name, style: theme.textTheme.titleSmall),
-                  if (state.hasUnsavedChanges && !autosaved) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      'Edited',
-                      key: const Key('edited'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

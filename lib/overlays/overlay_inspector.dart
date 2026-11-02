@@ -8,6 +8,11 @@ import '../editing/project_editor.dart';
 import '../model/overlay_item.dart';
 import '../timeline/timeline_state.dart';
 import '../ui/commit_slider.dart';
+import '../ui/editor/inspector_card.dart';
+import '../ui/editor/tool_button.dart';
+import '../ui/time_format.dart';
+import '../ui/tokens.dart';
+import '../ui/widgets/cut_icons.dart';
 
 /// Settings for the selected overlay, shown under the preview.
 class OverlayInspector extends ConsumerWidget {
@@ -20,7 +25,6 @@ class OverlayInspector extends ConsumerWidget {
     final o = project.overlays.where((o) => o.id == id).firstOrNull;
     if (o == null) return const SizedBox.shrink();
     final media = project.mediaById(o.mediaId);
-    final colors = Theme.of(context).colorScheme;
 
     void run(EditCommand command) {
       try {
@@ -32,89 +36,77 @@ class OverlayInspector extends ConsumerWidget {
       }
     }
 
-    return Container(
+    String percent(double v) => '${(v * 100).round()}%';
+    return InspectorCard(
       key: const Key('overlay-inspector'),
-      width: double.infinity,
-      color: colors.surfaceContainerHigh,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.layers_outlined, size: 16, color: colors.primary),
-              const SizedBox(width: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  media == null ? 'Overlay' : p.basename(media.path),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+      icon: CutIcons.layers,
+      color: Cut.trackOverlay,
+      title: media == null ? 'Overlay' : p.basename(media.path),
+      meta: 'Overlay · ${formatPlayerTime(o.duration)}',
+      trailing: [
+        EditorToolButton(
+          tooltip: 'Delete overlay',
+          keys: const ['⌫'],
+          icon: const Icon(CutIcons.trash),
+          onPressed: () {
+            run(RemoveOverlay(o.id));
+            ref.read(timelineUiProvider.notifier).selectOverlay(null);
+          },
+        ),
+      ],
+      children: [
+        InspectorDropdown<OverlayAnimation>(
+          buttonKey: const Key('overlay-animation'),
+          icon: CutIcons.animation,
+          value: o.animation,
+          items: [
+            for (final a in OverlayAnimation.values)
+              DropdownMenuItem(value: a, child: Text(_animationLabel(a))),
+          ],
+          onChanged: (a) => a == null || a == o.animation
+              ? null
+              : run(UpdateOverlay(o.id, animation: a)),
+        ),
+        CommitSlider(
+          key: Key('overlay-opacity-${o.id}'),
+          icon: CutIcons.opacity,
+          tooltip: 'Opacity',
+          value: o.transform.opacity,
+          min: 0.05,
+          max: 1,
+          format: percent,
+          onCommit: (v) => run(
+            UpdateOverlay(o.id, transform: o.transform.copyWith(opacity: v)),
           ),
-          DropdownButton<OverlayAnimation>(
-            key: const Key('overlay-animation'),
-            value: o.animation,
-            isDense: true,
-            underline: const SizedBox.shrink(),
-            items: [
-              for (final a in OverlayAnimation.values)
-                DropdownMenuItem(value: a, child: Text(_animationLabel(a))),
-            ],
-            onChanged: (a) => a == null || a == o.animation
-                ? null
-                : run(UpdateOverlay(o.id, animation: a)),
+        ),
+        CommitSlider(
+          key: Key('overlay-rotation-${o.id}'),
+          icon: CutIcons.rotate,
+          tooltip: 'Rotation',
+          value: o.transform.rotation,
+          min: -180,
+          max: 180,
+          format: (v) => '${v.round()}°',
+          onCommit: (v) => run(
+            UpdateOverlay(
+              o.id,
+              // Snap to straight when close.
+              transform: o.transform.copyWith(rotation: v.abs() < 3 ? 0 : v),
+            ),
           ),
+        ),
+        if (media?.hasAudio ?? false)
           CommitSlider(
-            key: Key('overlay-opacity-${o.id}'),
-            icon: Icons.opacity,
-            tooltip: 'Opacity',
-            value: o.transform.opacity,
-            min: 0.05,
-            max: 1,
-            onCommit: (v) => run(
-              UpdateOverlay(o.id, transform: o.transform.copyWith(opacity: v)),
-            ),
+            key: Key('overlay-volume-${o.id}'),
+            icon: o.volume == 0 ? CutIcons.mute : CutIcons.volume,
+            tooltip: 'Sound',
+            value: o.volume,
+            min: 0,
+            max: 2,
+            format: percent,
+            onCommit: (v) => run(UpdateOverlay(o.id, volume: v)),
           ),
-          CommitSlider(
-            key: Key('overlay-rotation-${o.id}'),
-            icon: Icons.rotate_right,
-            tooltip: 'Rotation',
-            value: o.transform.rotation,
-            min: -180,
-            max: 180,
-            onCommit: (v) => run(
-              UpdateOverlay(
-                o.id,
-                // Snap to straight when close.
-                transform: o.transform.copyWith(rotation: v.abs() < 3 ? 0 : v),
-              ),
-            ),
-          ),
-          if (media?.hasAudio ?? false)
-            CommitSlider(
-              key: Key('overlay-volume-${o.id}'),
-              icon: o.volume == 0 ? Icons.volume_off : Icons.volume_up,
-              tooltip: 'Sound',
-              value: o.volume,
-              min: 0,
-              max: 2,
-              onCommit: (v) => run(UpdateOverlay(o.id, volume: v)),
-            ),
-          IconButton(
-            tooltip: 'Delete overlay',
-            icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: () {
-              run(RemoveOverlay(o.id));
-              ref.read(timelineUiProvider.notifier).selectOverlay(null);
-            },
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

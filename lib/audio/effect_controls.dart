@@ -8,10 +8,14 @@ import '../model/project.dart';
 import '../model/voice_effect.dart';
 import '../timeline/timeline_state.dart';
 import '../ui/commit_slider.dart';
+import '../ui/editor/inspector_card.dart';
 import '../ui/time_format.dart';
+import '../ui/tokens.dart';
+import '../ui/widgets/cut_icons.dart';
 
 /// Preset, pitch, speed and cleanup for one clip's sound. Each change is
-/// one undo step.
+/// one undo step. Returns its controls as separate widgets so they flow
+/// with the rest of an inspector.
 class VoiceEffectControls extends StatelessWidget {
   const VoiceEffectControls({
     super.key,
@@ -30,15 +34,14 @@ class VoiceEffectControls extends StatelessWidget {
         .where((p) => p.effect == effect)
         .firstOrNull;
     return Wrap(
-      spacing: 14,
-      runSpacing: 4,
+      spacing: CutSpace.s5,
+      runSpacing: CutSpace.s2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        DropdownButton<String>(
-          key: const Key('voice-preset'),
+        InspectorDropdown<String>(
+          buttonKey: const Key('voice-preset'),
+          icon: CutIcons.voiceEffect,
           value: effect.isNone ? 'none' : preset?.name ?? 'custom',
-          isDense: true,
-          underline: const SizedBox.shrink(),
           items: [
             const DropdownMenuItem(value: 'none', child: Text('Normal voice')),
             for (final p in VoicePreset.values)
@@ -60,7 +63,7 @@ class VoiceEffectControls extends StatelessWidget {
         ),
         CommitSlider(
           key: const Key('voice-pitch'),
-          icon: Icons.height,
+          icon: CutIcons.pitch,
           tooltip:
               'Pitch: ${effect.pitch > 0 ? '+' : ''}'
               '${effect.pitch.toStringAsFixed(0)} semitones',
@@ -68,30 +71,30 @@ class VoiceEffectControls extends StatelessWidget {
           min: -12,
           max: 12,
           divisions: 24,
+          format: (v) => '${v > 0 ? '+' : ''}${v.round()} st',
           onCommit: (v) => onChanged(effect.copyWith(pitch: v.roundToDouble())),
         ),
         if (allowSpeed)
           CommitSlider(
             key: const Key('voice-speed'),
-            icon: Icons.speed,
+            icon: CutIcons.speed,
             tooltip: 'Speed ${effect.speed.toStringAsFixed(2)}×',
             value: effect.speed,
             min: 0.5,
             max: 2,
             divisions: 30,
+            format: (v) => '${v.toStringAsFixed(2)}×',
             onCommit: (v) => onChanged(effect.copyWith(speed: v)),
           ),
-        FilterChip(
-          label: const Text('Clean up noise'),
+        InspectorToggle(
+          label: 'Clean up noise',
           selected: effect.denoise,
-          visualDensity: VisualDensity.compact,
-          onSelected: (v) => onChanged(effect.copyWith(denoise: v)),
+          onChanged: (v) => onChanged(effect.copyWith(denoise: v)),
         ),
-        FilterChip(
-          label: const Text('Even loudness'),
+        InspectorToggle(
+          label: 'Even loudness',
           selected: effect.normalize,
-          visualDensity: VisualDensity.compact,
-          onSelected: (v) => onChanged(effect.copyWith(normalize: v)),
+          onChanged: (v) => onChanged(effect.copyWith(normalize: v)),
         ),
       ],
     );
@@ -111,7 +114,6 @@ class ClipInspector extends ConsumerWidget {
     if (clip == null || !(media?.hasAudio ?? false)) {
       return const SizedBox.shrink();
     }
-    final colors = Theme.of(context).colorScheme;
 
     void run(EditCommand command) {
       try {
@@ -124,54 +126,46 @@ class ClipInspector extends ConsumerWidget {
     }
 
     final everyClip = project.clips.length > 1;
-    return Container(
+    final index = project.clipIndex(clip.id);
+    return InspectorCard(
       key: const Key('clip-inspector'),
-      width: double.infinity,
-      color: colors.surfaceContainerHigh,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Wrap(
-        spacing: 14,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.movie_outlined, size: 16, color: colors.primary),
-              const SizedBox(width: 6),
-              Text('Clip · ${formatPlayerTime(clip.duration)}'),
-            ],
-          ),
-          CommitSlider(
-            key: Key('clip-volume-${clip.id}'),
-            icon: Icons.volume_up,
-            tooltip: 'Volume',
-            value: clip.volume,
-            min: 0,
-            max: 2,
-            onCommit: (v) => run(SetClipVolume(clip.id, v)),
-          ),
-          VoiceEffectControls(
-            effect: clip.effect,
-            // With several clips, effects go on all of them: it's usually
-            // the same voice throughout. One clip can still differ.
-            onChanged: (e) => run(
-              SetClipEffect(
-                e,
-                clipIds: everyClip && _sameEverywhere(project, clip.effect)
-                    ? null
-                    : [clip.id],
-              ),
+      icon: CutIcons.video,
+      color: Cut.trackVideo,
+      title: everyClip
+          ? 'Clip ${index + 1} of ${project.clips.length}'
+          : 'Clip',
+      meta: formatPlayerTime(clip.duration),
+      children: [
+        CommitSlider(
+          key: Key('clip-volume-${clip.id}'),
+          icon: clip.volume == 0 ? CutIcons.mute : CutIcons.volume,
+          tooltip: 'Volume',
+          value: clip.volume,
+          min: 0,
+          max: 2,
+          format: (v) => '${(v * 100).round()}%',
+          onCommit: (v) => run(SetClipVolume(clip.id, v)),
+        ),
+        VoiceEffectControls(
+          effect: clip.effect,
+          // With several clips, effects go on all of them: it's usually
+          // the same voice throughout. One clip can still differ.
+          onChanged: (e) => run(
+            SetClipEffect(
+              e,
+              clipIds: everyClip && _sameEverywhere(project, clip.effect)
+                  ? null
+                  : [clip.id],
             ),
           ),
-          if (everyClip && !_sameEverywhere(project, clip.effect))
-            TextButton(
-              key: const Key('effect-all-clips'),
-              onPressed: () => run(SetClipEffect(clip.effect)),
-              child: const Text('Use on every clip'),
-            ),
-        ],
-      ),
+        ),
+        if (everyClip && !_sameEverywhere(project, clip.effect))
+          TextButton(
+            key: const Key('effect-all-clips'),
+            onPressed: () => run(SetClipEffect(clip.effect)),
+            child: const Text('Use on every clip'),
+          ),
+      ],
     );
   }
 
