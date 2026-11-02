@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../media/media_previews.dart';
 import '../model/project.dart';
@@ -23,8 +24,9 @@ abstract final class TimelineRows {
   static const videoHeight = 60.0;
   static const waveTop = videoTop + videoHeight + 2;
   static const waveHeight = 30.0;
-  static const overlayTop = waveTop + waveHeight + 8;
+  static const titleTop = waveTop + waveHeight + 8;
   static const rowHeight = 22.0;
+  static const overlayTop = titleTop + rowHeight + 4;
   static const audioTop = overlayTop + rowHeight + 4;
   static const height = audioTop + rowHeight + 8;
 }
@@ -39,6 +41,7 @@ class TimelineColors {
     required this.selected,
     required this.wave,
     required this.overlay,
+    required this.sticker,
     required this.audio,
     required this.playhead,
   });
@@ -52,6 +55,7 @@ class TimelineColors {
     selected: c.primary,
     wave: c.tertiary,
     overlay: c.secondaryContainer,
+    sticker: c.primaryContainer,
     audio: c.tertiaryContainer,
     playhead: c.error,
   );
@@ -64,6 +68,7 @@ class TimelineColors {
   final Color selected;
   final Color wave;
   final Color overlay;
+  final Color sticker;
   final Color audio;
   final Color playhead;
 }
@@ -80,6 +85,8 @@ class TracksPainter extends CustomPainter {
     required this.visible,
     this.selectedTitleId,
     this.titleDrag,
+    this.selectedOverlayId,
+    this.overlayDrag,
   });
 
   final TimelineGeometry geometry;
@@ -101,6 +108,12 @@ class TracksPainter extends CustomPainter {
   /// A title being dragged: its id and where it would start.
   final ({String id, Duration start})? titleDrag;
 
+  final String? selectedOverlayId;
+
+  /// An overlay being moved or stretched: where it would start and how
+  /// long it would be.
+  final ({String id, Duration start, Duration duration})? overlayDrag;
+
   Project get project => geometry.project;
 
   @override
@@ -110,10 +123,8 @@ class TracksPainter extends CustomPainter {
       if (box.right < visible.left || box.left > visible.right) continue;
       _paintClip(canvas, box);
     }
-    _paintSpans(canvas, TimelineRows.overlayTop, colors.overlay, [
-      for (final o in project.overlays) (o.start, o.end),
-    ]);
     _paintTitles(canvas);
+    _paintOverlays(canvas);
     _paintSpans(canvas, TimelineRows.audioTop, colors.audio, [
       for (final a in project.audio) (a.start, a.end),
     ]);
@@ -312,35 +323,72 @@ class TracksPainter extends CustomPainter {
       final start = titleDrag?.id == title.id ? titleDrag!.start : title.start;
       final rect = Rect.fromLTRB(
         geometry.xOf(start),
-        TimelineRows.overlayTop,
+        TimelineRows.titleTop,
         geometry.xOf(start + title.spec.duration),
-        TimelineRows.overlayTop + TimelineRows.rowHeight,
+        TimelineRows.titleTop + TimelineRows.rowHeight,
       );
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
-      canvas.drawRRect(rrect, Paint()..color = colors.overlay);
-      if (title.id == selectedTitleId) {
-        canvas.drawRRect(
-          rrect,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2
-            ..color = colors.selected,
-        );
-      }
-      final label = TextPainter(
-        text: TextSpan(
-          text: titleLabel(title.spec),
-          style: TextStyle(fontSize: 11, color: colors.rulerText),
-        ),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        ellipsis: '…',
-      )..layout(maxWidth: (rect.width - 10).clamp(0, double.infinity));
-      label.paint(
+      _paintLabelledSpan(
         canvas,
-        Offset(rect.left + 5, rect.center.dy - label.height / 2),
+        rect,
+        colors.overlay,
+        titleLabel(title.spec),
+        selected: title.id == selectedTitleId,
       );
     }
+  }
+
+  void _paintOverlays(Canvas canvas) {
+    for (final o in project.overlays) {
+      final d = overlayDrag?.id == o.id ? overlayDrag : null;
+      final start = d?.start ?? o.start;
+      final rect = Rect.fromLTRB(
+        geometry.xOf(start),
+        TimelineRows.overlayTop,
+        geometry.xOf(start + (d?.duration ?? o.duration)),
+        TimelineRows.overlayTop + TimelineRows.rowHeight,
+      );
+      final media = project.mediaById(o.mediaId);
+      _paintLabelledSpan(
+        canvas,
+        rect,
+        colors.sticker,
+        media == null ? 'Overlay' : p.basename(media.path),
+        selected: o.id == selectedOverlayId,
+      );
+    }
+  }
+
+  void _paintLabelledSpan(
+    Canvas canvas,
+    Rect rect,
+    Color fill,
+    String text, {
+    required bool selected,
+  }) {
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+    canvas.drawRRect(rrect, Paint()..color = fill);
+    if (selected) {
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = colors.selected,
+      );
+    }
+    final label = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontSize: 11, color: colors.rulerText),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: (rect.width - 10).clamp(0, double.infinity));
+    label.paint(
+      canvas,
+      Offset(rect.left + 5, rect.center.dy - label.height / 2),
+    );
   }
 
   void _paintSpans(

@@ -186,6 +186,14 @@ void main() {
       ).apply(p);
       expect(p.overlays.single.start, s(6));
       expect(p.overlays.single.transform.x, 0.9);
+      p = const UpdateOverlay(
+        'o',
+        animation: OverlayAnimation.fade,
+        volume: 0,
+      ).apply(p);
+      expect(p.overlays.single.animation, OverlayAnimation.fade);
+      expect(p.overlays.single.volume, 0);
+      expect(p.overlays.single.transform.x, 0.9, reason: 'kept');
       p = const RemoveOverlay('o').apply(p);
       expect(p.overlays, isEmpty);
     });

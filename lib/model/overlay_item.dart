@@ -22,8 +22,13 @@ abstract class OverlayTransform with _$OverlayTransform {
       _$OverlayTransformFromJson(json);
 }
 
+/// How an overlay comes in and goes out. The same movement plays in
+/// reverse at the end.
+enum OverlayAnimation { none, pop, fade, slide }
+
 /// Something drawn on top of the video for a while: an image, GIF or
-/// video sticker (and later, titles).
+/// video sticker. GIFs and videos loop if they're shorter than
+/// [duration].
 @freezed
 abstract class OverlayItem with _$OverlayItem {
   const OverlayItem._();
@@ -35,6 +40,10 @@ abstract class OverlayItem with _$OverlayItem {
     @DurationConverter() required Duration duration,
     @Default(OverlayTransform()) OverlayTransform transform,
     @Default(0) int layer,
+    @Default(OverlayAnimation.pop) OverlayAnimation animation,
+
+    /// Loudness of the file's own sound (a meme sound, a video sticker).
+    @Default(1.0) double volume,
   }) = _OverlayItem;
 
   factory OverlayItem.fromJson(Map<String, dynamic> json) =>

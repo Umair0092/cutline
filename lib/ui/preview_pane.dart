@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
+import '../model/media_asset.dart';
+import '../overlays/overlay_actions.dart';
+import '../overlays/overlay_inspector.dart';
+import '../overlays/overlay_layer.dart';
+import '../overlays/overlay_media.dart';
 import '../preview/preview_controller.dart';
 import '../titles/title_actions.dart';
 import '../titles/title_preview.dart';
@@ -33,9 +38,7 @@ class _PreviewPaneState extends ConsumerState<PreviewPane> {
       onDragExited: (_) => setState(() => _dragging = false),
       onDragDone: (details) async {
         setState(() => _dragging = false);
-        await importVideos(ref, context, [
-          for (final f in details.files) f.path,
-        ]);
+        await dropFiles(ref, context, [for (final f in details.files) f.path]);
       },
       child: Container(
         color: colors.surfaceContainerLowest,
@@ -48,6 +51,27 @@ class _PreviewPaneState extends ConsumerState<PreviewPane> {
         child: hasClips ? const _Player() : const _EmptyState(),
       ),
     );
+  }
+}
+
+/// Videos dropped on the preview go on the main track. Pictures and GIFs
+/// go on top of the video at the playhead.
+Future<void> dropFiles(
+  WidgetRef ref,
+  BuildContext context,
+  List<String> paths,
+) async {
+  final videos = [
+    for (final f in paths)
+      if (overlayKindOf(f) case MediaKind.video || null) f,
+  ];
+  final pictures = [
+    for (final f in paths)
+      if (overlayKindOf(f) case MediaKind.image || MediaKind.gif) f,
+  ];
+  if (videos.isNotEmpty) await importVideos(ref, context, videos);
+  if (pictures.isNotEmpty && context.mounted) {
+    await addOverlayFiles(ref, context, pictures);
   }
 }
 
@@ -69,7 +93,7 @@ class _EmptyState extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'MP4, MOV or M4V',
+            'MP4, MOV or M4V. Then drop pictures and GIFs on top.',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
@@ -112,12 +136,14 @@ class _Player extends ConsumerWidget {
               return Stack(
                 children: [
                   Positioned.fill(child: preview.buildVideo()),
+                  Positioned.fromRect(rect: rect, child: const OverlayLayer()),
                   Positioned.fromRect(rect: rect, child: const TitleLayer()),
                 ],
               );
             },
           ),
         ),
+        const OverlayInspector(),
         const TransportBar(),
       ],
     );

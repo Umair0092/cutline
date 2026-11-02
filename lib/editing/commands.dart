@@ -309,11 +309,15 @@ class UpdateOverlay extends EditCommand {
     this.start,
     this.duration,
     this.transform,
+    this.animation,
+    this.volume,
   });
   final String overlayId;
   final Duration? start;
   final Duration? duration;
   final OverlayTransform? transform;
+  final OverlayAnimation? animation;
+  final double? volume;
 
   @override
   String get label => 'Change overlay';
@@ -326,6 +330,8 @@ class UpdateOverlay extends EditCommand {
       start: start ?? o.start,
       duration: duration ?? o.duration,
       transform: transform ?? o.transform,
+      animation: animation ?? o.animation,
+      volume: volume ?? o.volume,
     );
     _checkSpan(project, updated.start, updated.duration);
     return project.copyWith(

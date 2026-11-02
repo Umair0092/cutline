@@ -35,6 +35,10 @@ _OverlayItem _$OverlayItemFromJson(Map<String, dynamic> json) => _OverlayItem(
       ? const OverlayTransform()
       : OverlayTransform.fromJson(json['transform'] as Map<String, dynamic>),
   layer: (json['layer'] as num?)?.toInt() ?? 0,
+  animation:
+      $enumDecodeNullable(_$OverlayAnimationEnumMap, json['animation']) ??
+      OverlayAnimation.pop,
+  volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
 );
 
 Map<String, dynamic> _$OverlayItemToJson(_OverlayItem instance) =>
@@ -45,4 +49,13 @@ Map<String, dynamic> _$OverlayItemToJson(_OverlayItem instance) =>
       'duration': const DurationConverter().toJson(instance.duration),
       'transform': instance.transform.toJson(),
       'layer': instance.layer,
+      'animation': _$OverlayAnimationEnumMap[instance.animation]!,
+      'volume': instance.volume,
     };
+
+const _$OverlayAnimationEnumMap = {
+  OverlayAnimation.none: 'none',
+  OverlayAnimation.pop: 'pop',
+  OverlayAnimation.fade: 'fade',
+  OverlayAnimation.slide: 'slide',
+};

@@ -298,7 +298,8 @@ as double,
 /// @nodoc
 mixin _$OverlayItem {
 
- String get id; String get mediaId;@DurationConverter() Duration get start;@DurationConverter() Duration get duration; OverlayTransform get transform; int get layer;
+ String get id; String get mediaId;@DurationConverter() Duration get start;@DurationConverter() Duration get duration; OverlayTransform get transform; int get layer; OverlayAnimation get animation;/// Loudness of the file's own sound (a meme sound, a video sticker).
+ double get volume;
 /// Create a copy of OverlayItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -312,20 +313,20 @@ $OverlayItemCopyWith<OverlayItem> get copyWith => _$OverlayItemCopyWithImpl<Over
 @override
 bool operator ==(Object other) {
   final _this = this as OverlayItem;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OverlayItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.start, _this.start) || other.start == _this.start)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.transform, _this.transform) || other.transform == _this.transform)&&(identical(other.layer, _this.layer) || other.layer == _this.layer));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OverlayItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.start, _this.start) || other.start == _this.start)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.transform, _this.transform) || other.transform == _this.transform)&&(identical(other.layer, _this.layer) || other.layer == _this.layer)&&(identical(other.animation, _this.animation) || other.animation == _this.animation)&&(identical(other.volume, _this.volume) || other.volume == _this.volume));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as OverlayItem;
-  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.start,_this.duration,_this.transform,_this.layer);
+  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.start,_this.duration,_this.transform,_this.layer,_this.animation,_this.volume);
 }
 
 @override
 String toString() {
   final _this = this as OverlayItem;
-  return 'OverlayItem(id: ${_this.id}, mediaId: ${_this.mediaId}, start: ${_this.start}, duration: ${_this.duration}, transform: ${_this.transform}, layer: ${_this.layer})';
+  return 'OverlayItem(id: ${_this.id}, mediaId: ${_this.mediaId}, start: ${_this.start}, duration: ${_this.duration}, transform: ${_this.transform}, layer: ${_this.layer}, animation: ${_this.animation}, volume: ${_this.volume})';
 }
 
 
@@ -336,7 +337,7 @@ abstract mixin class $OverlayItemCopyWith<$Res>  {
   factory $OverlayItemCopyWith(OverlayItem value, $Res Function(OverlayItem) _then) = _$OverlayItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String mediaId,@DurationConverter() Duration start,@DurationConverter() Duration duration, OverlayTransform transform, int layer
+ String id, String mediaId,@DurationConverter() Duration start,@DurationConverter() Duration duration, OverlayTransform transform, int layer, OverlayAnimation animation, double volume
 });
 
 
@@ -353,7 +354,7 @@ class _$OverlayItemCopyWithImpl<$Res>
 
 /// Create a copy of OverlayItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? start = null,Object? duration = null,Object? transform = null,Object? layer = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? start = null,Object? duration = null,Object? transform = null,Object? layer = null,Object? animation = null,Object? volume = null,}) {
   return _then(OverlayItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
@@ -361,7 +362,9 @@ as String,start: null == start ? _self.start : start // ignore: cast_nullable_to
 as Duration,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as Duration,transform: null == transform ? _self.transform : transform // ignore: cast_nullable_to_non_nullable
 as OverlayTransform,layer: null == layer ? _self.layer : layer // ignore: cast_nullable_to_non_nullable
-as int,
+as int,animation: null == animation ? _self.animation : animation // ignore: cast_nullable_to_non_nullable
+as OverlayAnimation,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
+as double,
   ));
 }
 /// Create a copy of OverlayItem
@@ -455,10 +458,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer,  OverlayAnimation animation,  double volume)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OverlayItem() when $default != null:
-return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer);case _:
+return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer,_that.animation,_that.volume);case _:
   return orElse();
 
 }
@@ -476,10 +479,10 @@ return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transfor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer,  OverlayAnimation animation,  double volume)  $default,) {final _that = this;
 switch (_that) {
 case _OverlayItem():
-return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer);case _:
+return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer,_that.animation,_that.volume);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -496,10 +499,10 @@ return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transfor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId, @DurationConverter()  Duration start, @DurationConverter()  Duration duration,  OverlayTransform transform,  int layer,  OverlayAnimation animation,  double volume)?  $default,) {final _that = this;
 switch (_that) {
 case _OverlayItem() when $default != null:
-return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer);case _:
+return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transform,_that.layer,_that.animation,_that.volume);case _:
   return null;
 
 }
@@ -511,7 +514,7 @@ return $default(_that.id,_that.mediaId,_that.start,_that.duration,_that.transfor
 @JsonSerializable()
 
 class _OverlayItem extends OverlayItem {
-  const _OverlayItem({required this.id, required this.mediaId, @DurationConverter() required this.start, @DurationConverter() required this.duration, this.transform = const OverlayTransform(), this.layer = 0}): super._();
+  const _OverlayItem({required this.id, required this.mediaId, @DurationConverter() required this.start, @DurationConverter() required this.duration, this.transform = const OverlayTransform(), this.layer = 0, this.animation = OverlayAnimation.pop, this.volume = 1.0}): super._();
   factory _OverlayItem.fromJson(Map<String, dynamic> json) => _$OverlayItemFromJson(json);
 
 @override final  String id;
@@ -520,6 +523,9 @@ class _OverlayItem extends OverlayItem {
 @override@DurationConverter() final  Duration duration;
 @override@JsonKey() final  OverlayTransform transform;
 @override@JsonKey() final  int layer;
+@override@JsonKey() final  OverlayAnimation animation;
+/// Loudness of the file's own sound (a meme sound, a video sticker).
+@override@JsonKey() final  double volume;
 
 /// Create a copy of OverlayItem
 /// with the given fields replaced by the non-null parameter values.
@@ -534,18 +540,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _OverlayItem&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.start, start) || other.start == start)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.transform, transform) || other.transform == transform)&&(identical(other.layer, layer) || other.layer == layer));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _OverlayItem&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.start, start) || other.start == start)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.transform, transform) || other.transform == transform)&&(identical(other.layer, layer) || other.layer == layer)&&(identical(other.animation, animation) || other.animation == animation)&&(identical(other.volume, volume) || other.volume == volume));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,mediaId,start,duration,transform,layer);
+    return Object.hash(runtimeType,id,mediaId,start,duration,transform,layer,animation,volume);
 }
 
 @override
 String toString() {
-    return 'OverlayItem(id: $id, mediaId: $mediaId, start: $start, duration: $duration, transform: $transform, layer: $layer)';
+    return 'OverlayItem(id: $id, mediaId: $mediaId, start: $start, duration: $duration, transform: $transform, layer: $layer, animation: $animation, volume: $volume)';
 }
 
 
@@ -556,7 +562,7 @@ abstract mixin class _$OverlayItemCopyWith<$Res> implements $OverlayItemCopyWith
   factory _$OverlayItemCopyWith(_OverlayItem value, $Res Function(_OverlayItem) _then) = __$OverlayItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String mediaId,@DurationConverter() Duration start,@DurationConverter() Duration duration, OverlayTransform transform, int layer
+ String id, String mediaId,@DurationConverter() Duration start,@DurationConverter() Duration duration, OverlayTransform transform, int layer, OverlayAnimation animation, double volume
 });
 
 
@@ -573,7 +579,7 @@ class __$OverlayItemCopyWithImpl<$Res>
 
 /// Create a copy of OverlayItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? start = null,Object? duration = null,Object? transform = null,Object? layer = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? start = null,Object? duration = null,Object? transform = null,Object? layer = null,Object? animation = null,Object? volume = null,}) {
   return _then(_OverlayItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
@@ -581,7 +587,9 @@ as String,start: null == start ? _self.start : start // ignore: cast_nullable_to
 as Duration,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as Duration,transform: null == transform ? _self.transform : transform // ignore: cast_nullable_to_non_nullable
 as OverlayTransform,layer: null == layer ? _self.layer : layer // ignore: cast_nullable_to_non_nullable
-as int,
+as int,animation: null == animation ? _self.animation : animation // ignore: cast_nullable_to_non_nullable
+as OverlayAnimation,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
+as double,
   ));
 }
 

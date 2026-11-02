@@ -1,10 +1,8 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import '../export/exporter.dart';
 import '../model/title_item.dart';
+import '../render/frame_pipe.dart';
 import 'templates.dart';
 
 /// Draws one frame of [spec] at [t] seconds into an image.
@@ -43,27 +41,31 @@ class TitleRenderer {
     required double fps,
   }) async {
     final encoder = await EncoderPicker(ffmpeg).pick();
-    await _render(spec, outputPath, width, height, fps, [
-      '-f',
-      'lavfi',
-      '-i',
-      'anullsrc=r=48000:cl=stereo',
-      // Exactly the title's length: -shortest alone leaves ~0.1 s of extra
-      // AAC padding, which would shift everything after the intro.
-      '-t',
-      (spec.duration.inMicroseconds / 1e6).toStringAsFixed(3),
-      '-c:v',
-      encoder.ffmpegName,
-      ...encoder.args(8000000),
-      '-pix_fmt',
-      'yuv420p',
-      '-c:a',
-      'aac',
-      '-b:a',
-      '128k',
-      '-movflags',
-      '+faststart',
-    ]);
+    await _render(
+      spec,
+      outputPath,
+      width,
+      height,
+      fps,
+      extraInputs: ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo'],
+      [
+        // Exactly the title's length: -shortest alone leaves ~0.1 s of extra
+        // AAC padding, which would shift everything after the intro.
+        '-t',
+        (spec.duration.inMicroseconds / 1e6).toStringAsFixed(3),
+        '-c:v',
+        encoder.ffmpegName,
+        ...encoder.args(8000000),
+        '-pix_fmt',
+        'yuv420p',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '128k',
+        '-movflags',
+        '+faststart',
+      ],
+    );
   }
 
   /// A see-through MOV (PNG frames with alpha), for a title drawn over the
@@ -87,56 +89,32 @@ class TitleRenderer {
     int width,
     int height,
     double fps,
-    List<String> output,
-  ) async {
-    if (templateById(spec.templateId) == null) {
+    List<String> output, {
+    List<String> extraInputs = const [],
+  }) async {
+    final template = templateById(spec.templateId);
+    if (template == null) {
       throw ExportException('Unknown title template "${spec.templateId}".');
     }
-    final frames = (spec.duration.inMicroseconds / 1e6 * fps).round();
-    final process = await Process.start(ffmpeg, [
-      '-hide_banner',
-      '-loglevel',
-      'error',
-      '-y',
-      '-f',
-      'rawvideo',
-      '-pix_fmt',
-      'rgba',
-      '-s',
-      '${width}x$height',
-      '-r',
-      fps.toStringAsFixed(3),
-      '-i',
-      'pipe:0',
-      ...output,
-      outputPath,
-    ]);
-    final errors = StringBuffer();
-    final stderrDone = process.stderr
-        .transform(utf8.decoder)
-        .forEach(errors.write);
-    unawaited(process.stdout.drain<void>());
-    try {
-      for (var i = 0; i < frames; i++) {
-        final image = await renderTitleFrame(spec, width, height, i / fps);
-        final bytes = await image.toByteData(
-          format: ui.ImageByteFormat.rawStraightRgba,
-        );
-        image.dispose();
-        process.stdin.add(bytes!.buffer.asUint8List());
-        await process.stdin.flush();
-      }
-    } finally {
-      await process.stdin.close();
-    }
-    final code = await process.exitCode;
-    await stderrDone;
-    if (code != 0) {
-      throw ExportException(
-        'Rendering the title failed (ffmpeg exit code $code).',
-        details: errors.toString(),
-      );
-    }
+    final total = spec.duration.inMicroseconds / 1e6;
+    final size = ui.Size(width.toDouble(), height.toDouble());
+    await pipeFramesToFfmpeg(
+      ffmpeg: ffmpeg,
+      outputPath: outputPath,
+      width: width,
+      height: height,
+      fps: fps,
+      frames: (total * fps).round(),
+      extraInputs: extraInputs,
+      output: output,
+      paint: (canvas, i) async => template.paint(
+        canvas,
+        size,
+        i / fps,
+        total,
+        TitleValues(template, spec.fields),
+      ),
+    );
   }
 }
 

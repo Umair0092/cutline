@@ -8,6 +8,7 @@ class TimelineUiState {
     this.pixelsPerSecond = 40,
     this.selectedClipId,
     this.selectedTitleId,
+    this.selectedOverlayId,
   });
 
   final double pixelsPerSecond;
@@ -15,11 +16,13 @@ class TimelineUiState {
   /// At most one of these is set.
   final String? selectedClipId;
   final String? selectedTitleId;
+  final String? selectedOverlayId;
 
   TimelineUiState copyWith({
     double? pixelsPerSecond,
     String? Function()? selectedClipId,
     String? Function()? selectedTitleId,
+    String? Function()? selectedOverlayId,
   }) => TimelineUiState(
     pixelsPerSecond: pixelsPerSecond ?? this.pixelsPerSecond,
     selectedClipId: selectedClipId != null
@@ -28,6 +31,9 @@ class TimelineUiState {
     selectedTitleId: selectedTitleId != null
         ? selectedTitleId()
         : this.selectedTitleId,
+    selectedOverlayId: selectedOverlayId != null
+        ? selectedOverlayId()
+        : this.selectedOverlayId,
   );
 }
 
@@ -42,11 +48,19 @@ class TimelineUi extends Notifier<TimelineUiState> {
   void select(String? clipId) => state = state.copyWith(
     selectedClipId: () => clipId,
     selectedTitleId: () => null,
+    selectedOverlayId: () => null,
   );
 
   void selectTitle(String? titleId) => state = state.copyWith(
     selectedTitleId: () => titleId,
     selectedClipId: () => null,
+    selectedOverlayId: () => null,
+  );
+
+  void selectOverlay(String? overlayId) => state = state.copyWith(
+    selectedOverlayId: () => overlayId,
+    selectedClipId: () => null,
+    selectedTitleId: () => null,
   );
 
   void zoomBy(double factor) => state = state.copyWith(

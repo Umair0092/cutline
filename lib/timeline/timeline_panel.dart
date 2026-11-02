@@ -13,7 +13,10 @@ import '../media/media_previews.dart';
 import '../preview/preview_controller.dart';
 import '../storage/project_store.dart';
 import '../export/exporter.dart';
+import '../model/media_asset.dart';
+import '../model/overlay_item.dart';
 import '../model/title_item.dart';
+import '../overlays/overlay_actions.dart';
 import '../titles/title_actions.dart';
 import '../titles/title_editor_dialog.dart';
 import 'timeline_geometry.dart';
@@ -27,9 +30,21 @@ void splitAtPlayhead(WidgetRef ref, BuildContext context) {
   _runOrShow(ref, context, SplitAt(at));
 }
 
-/// Deletes the selected title or clip. Shared by the toolbar and
+/// Deletes the selected overlay, title or clip. Shared by the toolbar and
 /// Delete/Backspace.
 void deleteSelectedClip(WidgetRef ref, BuildContext context) {
+  final overlayId = ref.read(timelineUiProvider).selectedOverlayId;
+  if (overlayId != null) {
+    if (ref
+        .read(projectEditorProvider)
+        .project
+        .overlays
+        .any((o) => o.id == overlayId)) {
+      _runOrShow(ref, context, RemoveOverlay(overlayId));
+    }
+    ref.read(timelineUiProvider.notifier).selectOverlay(null);
+    return;
+  }
   final titleId = ref.read(timelineUiProvider).selectedTitleId;
   if (titleId != null) {
     if (ref
@@ -193,7 +208,10 @@ class _Toolbar extends ConsumerWidget {
             key: const Key('delete'),
             tooltip: 'Delete (Delete)',
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: ui.selectedClipId != null || ui.selectedTitleId != null
+            onPressed:
+                ui.selectedClipId != null ||
+                    ui.selectedTitleId != null ||
+                    ui.selectedOverlayId != null
                 ? () => deleteSelectedClip(ref, context)
                 : null,
           ),
@@ -202,6 +220,12 @@ class _Toolbar extends ConsumerWidget {
             tooltip: 'Add title or intro',
             icon: const Icon(Icons.title, size: 18),
             onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
+          ),
+          IconButton(
+            key: const Key('add-overlay'),
+            tooltip: 'Add a picture, GIF or video on top',
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+            onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
           ),
           const Spacer(),
           IconButton(
@@ -239,7 +263,7 @@ class TimelineTracks extends ConsumerStatefulWidget {
   ConsumerState<TimelineTracks> createState() => _TimelineTracksState();
 }
 
-enum _DragKind { scrub, trim, move, moveTitle }
+enum _DragKind { scrub, trim, move, moveTitle, moveOverlay, trimOverlay }
 
 class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   final _scroll = ScrollController();
@@ -300,7 +324,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   );
 
   ({String id, Duration start})? _titleDrag;
-  Duration _titleGrab = Duration.zero;
+  Duration _spanGrab = Duration.zero;
   Offset? _doubleTapAt;
 
   // Double-clicks are detected here instead of with a double-tap
@@ -321,8 +345,29 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   bool _inTitleRow(double y) =>
+      y >= TimelineRows.titleTop &&
+      y <= TimelineRows.titleTop + TimelineRows.rowHeight;
+
+  bool _inOverlayRow(double y) =>
       y >= TimelineRows.overlayTop &&
       y <= TimelineRows.overlayTop + TimelineRows.rowHeight;
+
+  /// The overlay under the pointer, and whether it's on its right edge
+  /// (which stretches it).
+  ({OverlayItem item, bool edge})? _hitOverlay(Offset at) {
+    if (!_inOverlayRow(at.dy)) return null;
+    final g = _geometry();
+    for (final o in g.project.overlays.reversed) {
+      final left = g.xOf(o.start);
+      final right = g.xOf(o.end);
+      if (at.dx >= left && at.dx <= right + 4) {
+        return (item: o, edge: at.dx >= right - 6);
+      }
+    }
+    return null;
+  }
+
+  ({String id, Duration start, Duration duration})? _overlayDrag;
 
   /// The title under the pointer in the titles row, if any.
   TitleItem? _hitTitle(Offset at) {
@@ -366,6 +411,14 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onHover(PointerHoverEvent e) {
+    final overlay = _hitOverlay(e.localPosition);
+    if (overlay != null) {
+      final cursor = overlay.edge
+          ? SystemMouseCursors.resizeLeftRight
+          : SystemMouseCursors.grab;
+      if (cursor != _cursor) setState(() => _cursor = cursor);
+      return;
+    }
     final hit = _inVideoRow(e.localPosition.dy)
         ? _geometry().hitClip(e.localPosition.dx)
         : null;
@@ -390,6 +443,12 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       _seekTo(d.localPosition.dx);
       return;
     }
+    final overlay = _hitOverlay(d.localPosition);
+    if (overlay != null) {
+      ref.read(timelineUiProvider.notifier).selectOverlay(overlay.item.id);
+      _seekTo(d.localPosition.dx);
+      return;
+    }
     final g = _geometry();
     final hit = _inVideoRow(d.localPosition.dy)
         ? g.hitClip(d.localPosition.dx)
@@ -404,10 +463,23 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
     final title = _hitTitle(d.localPosition);
     if (title != null) {
       ref.read(timelineUiProvider.notifier).selectTitle(title.id);
-      _titleGrab = _geometry().timeAt(d.localPosition.dx) - title.start;
+      _spanGrab = _geometry().timeAt(d.localPosition.dx) - title.start;
       setState(() {
         _dragKind = _DragKind.moveTitle;
         _titleDrag = (id: title.id, start: title.start);
+      });
+      return;
+    }
+    final overlay = _hitOverlay(d.localPosition);
+    if (overlay != null) {
+      final o = overlay.item;
+      ref.read(timelineUiProvider.notifier).selectOverlay(o.id);
+      _spanGrab = _geometry().timeAt(d.localPosition.dx) - o.start;
+      setState(() {
+        _dragKind = overlay.edge
+            ? _DragKind.trimOverlay
+            : _DragKind.moveOverlay;
+        _overlayDrag = (id: o.id, start: o.start, duration: o.duration);
       });
       return;
     }
@@ -452,7 +524,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
           );
         });
       case _DragKind.moveTitle when _titleDrag != null:
-        var start = g.timeAt(d.localPosition.dx) - _titleGrab;
+        var start = g.timeAt(d.localPosition.dx) - _spanGrab;
         if (start < Duration.zero) start = Duration.zero;
         start = g.snap(start, [
           Duration.zero,
@@ -460,6 +532,33 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
           ...g.project.clipStarts,
         ]);
         setState(() => _titleDrag = (id: _titleDrag!.id, start: start));
+      case _DragKind.moveOverlay when _overlayDrag != null:
+        final od = _overlayDrag!;
+        var start = g.timeAt(d.localPosition.dx) - _spanGrab;
+        if (start < Duration.zero) start = Duration.zero;
+        start = g.snap(start, [
+          Duration.zero,
+          _position.value,
+          ...g.project.clipStarts,
+        ]);
+        final last = g.project.duration - minClipDuration;
+        if (start > last) start = last;
+        setState(
+          () => _overlayDrag = (id: od.id, start: start, duration: od.duration),
+        );
+      case _DragKind.trimOverlay when _overlayDrag != null:
+        final od = _overlayDrag!;
+        var end = g.snap(g.timeAt(d.localPosition.dx), [
+          _position.value,
+          ...g.project.clipStarts,
+          g.project.duration,
+        ]);
+        if (end > g.project.duration) end = g.project.duration;
+        var length = end - od.start;
+        if (length < minClipDuration) length = minClipDuration;
+        setState(
+          () => _overlayDrag = (id: od.id, start: od.start, duration: length),
+        );
       case _DragKind.trim when drag is TrimDrag:
         final raw = g.timeAt(d.localPosition.dx - _grabOffset);
         final targets = [
@@ -479,6 +578,33 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onPanEnd(DragEndDetails _) {
+    final overlayDrag = _overlayDrag;
+    if (overlayDrag != null) {
+      setState(() {
+        _overlayDrag = null;
+        _dragKind = null;
+      });
+      final o = ref
+          .read(projectEditorProvider)
+          .project
+          .overlays
+          .where((o) => o.id == overlayDrag.id)
+          .firstOrNull;
+      if (o != null &&
+          (o.start != overlayDrag.start ||
+              o.duration != overlayDrag.duration)) {
+        _runOrShow(
+          ref,
+          context,
+          UpdateOverlay(
+            overlayDrag.id,
+            start: overlayDrag.start,
+            duration: overlayDrag.duration,
+          ),
+        );
+      }
+      return;
+    }
     final titleDrag = _titleDrag;
     if (_dragKind == _DragKind.moveTitle && titleDrag != null) {
       setState(() {
@@ -557,15 +683,16 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
     );
     final previews = <String, MediaPreview>{
       for (final m in project.media)
-        m.id:
-            ref
-                .watch(
-                  mediaPreviewProvider(
-                    ProjectStore.resolve(m.path, state.workPath),
-                  ),
-                )
-                .value ??
-            MediaPreview.empty,
+        if (m.kind == MediaKind.video)
+          m.id:
+              ref
+                  .watch(
+                    mediaPreviewProvider(
+                      ProjectStore.resolve(m.path, state.workPath),
+                    ),
+                  )
+                  .value ??
+              MediaPreview.empty,
     };
     final colors = TimelineColors.of(Theme.of(context).colorScheme);
     final drag = _drag;
@@ -598,7 +725,9 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
             child: Listener(
               onPointerSignal: _onPointerSignal,
               child: MouseRegion(
-                cursor: _dragKind == _DragKind.move
+                cursor:
+                    _dragKind == _DragKind.move ||
+                        _dragKind == _DragKind.moveOverlay
                     ? SystemMouseCursors.grabbing
                     : _cursor,
                 onHover: _onHover,
@@ -627,6 +756,8 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                         visible: visible,
                         selectedTitleId: ui.selectedTitleId,
                         titleDrag: _titleDrag,
+                        selectedOverlayId: ui.selectedOverlayId,
+                        overlayDrag: _overlayDrag,
                       ),
                       foregroundPainter: PlayheadPainter(
                         geometry: g,

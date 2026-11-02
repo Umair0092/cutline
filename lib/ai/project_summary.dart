@@ -9,6 +9,8 @@ import '../transcript/transcript.dart';
 /// Enough for well over an hour of speech.
 const maxTranscriptLines = 1500;
 
+double _s2(double v) => (v * 100).roundToDouble() / 100;
+
 double _s(Duration d) => (d.inMilliseconds / 1000 * 100).roundToDouble() / 100;
 
 /// A compact JSON view of the project for the assistant. Times are timeline
@@ -44,7 +46,16 @@ Map<String, dynamic> projectSummary(
     if (project.overlays.isNotEmpty)
       'overlays': [
         for (final o in project.overlays)
-          {'id': o.id, 'start': _s(o.start), 'end': _s(o.end)},
+          {
+            'id': o.id,
+            'start': _s(o.start),
+            'end': _s(o.end),
+            'file': p.basename(project.mediaById(o.mediaId)?.path ?? '?'),
+            'x': _s2(o.transform.x),
+            'y': _s2(o.transform.y),
+            'width': _s2(o.transform.scale),
+            'animation': o.animation.name,
+          },
       ],
     if (project.audio.isNotEmpty)
       'audio': [

@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../model/project.dart';
+import '../overlays/overlay_renderer.dart';
+import '../storage/project_store.dart';
 import '../titles/title_renderer.dart';
 import 'export_settings.dart';
 import 'ffmpeg_command.dart';
@@ -146,9 +148,41 @@ class Exporter {
     final encoder = await EncoderPicker(ffmpeg).pick();
     final format = ExportFormat.forProject(project, preset);
 
-    // Titles over the video are drawn at the exact output size first.
+    // Overlays and titles are drawn at the exact output size first, then
+    // laid over the video in order: overlays by layer, titles on top.
     final work = Directory.systemTemp.createTempSync('cutline_export');
     final overlays = <({String path, Duration start})>[];
+    final sounds = <OverlaySound>[];
+    final items = [...project.overlays]
+      ..sort((a, b) => a.layer.compareTo(b.layer));
+    for (final item in items) {
+      final media = project.mediaById(item.mediaId);
+      if (media == null || item.start >= project.duration) continue;
+      final room = project.duration - item.start;
+      final length = item.duration < room ? item.duration : room;
+      final source = ProjectStore.resolve(media.path, projectPath);
+      final path = p.join(work.path, 'overlay-${item.id}.mov');
+      await renderOverlayClip(
+        ffmpeg: ffmpeg,
+        item: item,
+        media: media,
+        sourcePath: source,
+        outputPath: path,
+        width: format.width,
+        height: format.height,
+        fps: format.frameRate,
+        length: length,
+      );
+      overlays.add((path: path, start: item.start));
+      if (media.hasAudio && item.volume > 0) {
+        sounds.add((
+          path: source,
+          start: item.start,
+          length: length,
+          volume: item.volume,
+        ));
+      }
+    }
     for (final title in project.titles) {
       final path = p.join(work.path, '${title.id}.mov');
       await TitleRenderer(ffmpeg).renderOverlay(
@@ -168,6 +202,7 @@ class Exporter {
       encoder: encoder,
       outputPath: outputPath,
       titleOverlays: overlays,
+      sounds: sounds,
     );
     final process = await Process.start(ffmpeg, args);
     final job = ExportJob._(process, outputPath, project.duration);

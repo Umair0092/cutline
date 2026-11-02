@@ -73,9 +73,39 @@ void main() {
       expect(graph, contains('apad,atrim=duration=20.000000'));
       expect(
         graph,
-        contains('[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vmain][aout]'),
+        contains('[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vmain][amain]'),
       );
-      expect(graph, endsWith('[vmain]null[vout]'));
+      expect(graph, contains('[vmain]null[vout]'));
+      expect(graph, endsWith('[amain]anull[aout]'));
+    });
+
+    test('overlay sounds are delayed to their start and mixed in', () {
+      final a = buildExportArgs(
+        project: threeClips(),
+        projectPath: null,
+        format: format,
+        encoder: VideoEncoder.videotoolbox,
+        outputPath: '/out.mp4',
+        titleOverlays: [(path: '/tmp/o1.mov', start: s(4))],
+        sounds: [
+          (path: '/memes/bruh.mp4', start: s(4), length: s(2), volume: 0.5),
+        ],
+      );
+      expect(
+        a,
+        containsAllInOrder(['-i', '/tmp/o1.mov', '-i', '/memes/bruh.mp4']),
+      );
+      final graph = a[a.indexOf('-filter_complex') + 1];
+      expect(graph, contains('[4:a:0]aresample=48000'));
+      expect(graph, contains('atrim=duration=2.000000'));
+      expect(graph, contains('volume=0.500,adelay=delays=4000:all=1[s0]'));
+      expect(
+        graph,
+        endsWith(
+          '[amain][s0]amix=inputs=2:normalize=0:duration=first:'
+          'dropout_transition=0[aout]',
+        ),
+      );
     });
 
     test('titles are extra inputs laid over the video at their start', () {
@@ -94,7 +124,7 @@ void main() {
         graph,
         contains('[vmain][title0]overlay=0:0:eof_action=pass[vt0]'),
       );
-      expect(graph, endsWith('[vt0]null[vout]'));
+      expect(graph, contains('[vt0]null[vout]'));
     });
 
     test('silent clips get generated silence', () {
