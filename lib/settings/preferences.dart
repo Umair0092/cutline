@@ -16,6 +16,7 @@ class Preferences {
     this.yourName = '',
     this.brandColor = '',
     this.provider = AiProvider.groq,
+    this.onboarded = false,
   });
 
   factory Preferences.fromJson(Map<String, dynamic> json) => Preferences(
@@ -26,6 +27,7 @@ class Preferences {
             .where((p) => p.name == json['provider'])
             .firstOrNull ??
         AiProvider.groq,
+    onboarded: json['onboarded'] as bool? ?? false,
   );
 
   final String yourName;
@@ -36,14 +38,19 @@ class Preferences {
   /// Which AI service the assistant uses. Groq's free tier by default.
   final AiProvider provider;
 
+  /// The first-run guide has been seen.
+  final bool onboarded;
+
   Preferences copyWith({
     String? yourName,
     String? brandColor,
     AiProvider? provider,
+    bool? onboarded,
   }) => Preferences(
     yourName: yourName ?? this.yourName,
     brandColor: brandColor ?? this.brandColor,
     provider: provider ?? this.provider,
+    onboarded: onboarded ?? this.onboarded,
   );
 
   bool get isEmpty => yourName.isEmpty && brandColor.isEmpty;
@@ -52,6 +59,7 @@ class Preferences {
     if (yourName.isNotEmpty) 'yourName': yourName,
     if (brandColor.isNotEmpty) 'brandColor': brandColor,
     'provider': provider.name,
+    if (onboarded) 'onboarded': true,
   };
 }
 

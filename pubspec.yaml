@@ -45,9 +45,11 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_libs_video: ^1.0.7
   media_kit_video: ^2.0.1
+  package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.6
   record: ^7.1.2
+  url_launcher: ^6.3.3
   uuid: ^4.6.0
 
 dev_dependencies:
@@ -72,6 +74,13 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
+
+  # Licenses of the bundled tools and fonts, shown in About → Licenses.
+  assets:
+    - assets/licenses/
+    - assets/fonts/BebasNeue-OFL.txt
+    - assets/fonts/Inter-OFL.txt
+    - assets/fonts/PlayfairDisplay-OFL.txt
 
   # Bundled so titles look the same in the preview, the export and on every
   # computer. All three are SIL Open Font License (see assets/fonts/*-OFL.txt).

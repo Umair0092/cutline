@@ -77,6 +77,8 @@ class StartupController extends Notifier<StartupState> {
   }
 
   Future<void> _run() async {
+    // Let build() return first: state set while building would be lost.
+    await Future<void>.value();
     final tasks = ref.read(startupTasksProvider);
     final minimum = ref.read(splashMinimumProvider);
     final watch = Stopwatch()..start();

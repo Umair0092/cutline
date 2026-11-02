@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
+import '../onboarding/onboarding.dart';
+import 'about.dart';
 import 'export_dialog.dart';
 import 'file_actions.dart';
 import 'editor_shortcuts.dart';
@@ -81,18 +83,39 @@ class AppMenu extends ConsumerWidget {
           () => _undoOrTextUndo(editor.redo, redo: true),
         ),
       ],
+      'Help': [
+        MenuCommand('Getting Started…', null, () => showOnboarding(context)),
+        if (defaultTargetPlatform != TargetPlatform.macOS)
+          MenuCommand('About Cutline', null, () => showCutlineAbout(context)),
+      ],
     };
 
     if (defaultTargetPlatform == TargetPlatform.macOS) {
       return PlatformMenuBar(
         menus: [
-          const PlatformMenu(
+          PlatformMenu(
             label: 'Cutline',
             menus: [
-              PlatformProvidedMenuItem(
-                type: PlatformProvidedMenuItemType.about,
+              PlatformMenuItemGroup(
+                members: [
+                  PlatformMenuItem(
+                    label: 'About Cutline',
+                    onSelected: () => showCutlineAbout(context),
+                  ),
+                ],
               ),
-              PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.quit),
+              PlatformMenuItemGroup(
+                members: [
+                  PlatformMenuItem(
+                    label: 'Settings…',
+                    shortcut: mod(LogicalKeyboardKey.comma),
+                    onSelected: () => showSettings(context),
+                  ),
+                ],
+              ),
+              const PlatformProvidedMenuItem(
+                type: PlatformProvidedMenuItemType.quit,
+              ),
             ],
           ),
           for (final MapEntry(key: title, value: commands) in menus.entries)

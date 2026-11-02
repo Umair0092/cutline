@@ -1,0 +1,133 @@
+name: Release
+
+# Push a tag like v1.0.0 to build the macOS DMG and the Windows installer
+# and attach them to a GitHub release. Run it by hand ("dry run") to build
+# both without publishing anything.
+#
+# Optional secrets (without them the builds are unsigned and the OS warns
+# when installing):
+#   macOS:   MACOS_CERT_P12 (base64 Developer ID Application .p12),
+#            MACOS_CERT_PASSWORD, MACOS_CODESIGN_IDENTITY,
+#            NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD
+#   Windows: WINDOWS_CERT_PFX (base64 .pfx), WINDOWS_CERT_PASSWORD
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: 3.47.9
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    env:
+      # Step conditions can't read secrets directly.
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Cache FFmpeg and whisper
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/ffmpeg
+            third_party/whisper
+          key: release-tools-macos-universal-${{ hashFiles('tool/build_*_macos.sh') }}
+      # Universal, so the app runs natively on Intel and Apple silicon.
+      - name: Build LGPL FFmpeg
+        run: '[ -x third_party/ffmpeg/macos/ffmpeg ] || ARCHS="arm64 x86_64" tool/build_ffmpeg_macos.sh'
+      - name: Build whisper.cpp
+        run: '[ -x third_party/whisper/macos/whisper-cli ] || ARCHS="arm64 x86_64" tool/build_whisper_macos.sh'
+      - run: flutter pub get
+      - name: Import the signing certificate
+        if: env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          keychain=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p temp "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p temp "$keychain"
+          echo "$MACOS_CERT_P12" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -P "$MACOS_CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k temp "$keychain"
+          security list-keychains -d user -s "$keychain" login.keychain
+      - name: Build and package
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: tool/package_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: build/dist/*.dmg
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Cache FFmpeg and whisper
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/ffmpeg
+            third_party/whisper
+          key: tools-windows-${{ hashFiles('tool/fetch_*_windows.ps1') }}
+      - name: Fetch whisper.cpp
+        shell: pwsh
+        run: if (-not (Test-Path third_party/whisper/windows/whisper-cli.exe)) { ./tool/fetch_whisper_windows.ps1 }
+      - name: Fetch LGPL FFmpeg
+        shell: pwsh
+        run: if (-not (Test-Path third_party/ffmpeg/windows/ffmpeg.exe)) { ./tool/fetch_ffmpeg_windows.ps1 }
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - run: flutter pub get
+      - name: Build and package
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if ($env:WINDOWS_CERT_PFX) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+            $env:WINDOWS_CERT_PATH = $pfx
+          }
+          ./tool/package_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/dist/*.exe
+
+  publish:
+    # Tags with "dry-run" in them only check that both builds work.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'dry-run')
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Cutline ${GITHUB_REF_NAME#v}" \
+            --generate-notes

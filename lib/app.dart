@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ui/app_menu.dart';
+import 'onboarding/onboarding.dart';
 import 'ui/editor_screen.dart';
 import 'ui/splash_screen.dart';
 
@@ -27,7 +28,9 @@ class CutlineApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.dark,
       home: showSplash
-          ? const StartupGate(child: AppMenu(child: EditorScreen()))
+          ? const StartupGate(
+              child: AppMenu(child: FirstRunGuide(child: EditorScreen())),
+            )
           : const AppMenu(child: EditorScreen()),
     );
   }

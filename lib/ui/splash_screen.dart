@@ -23,37 +23,41 @@ class CutlineLogo extends StatelessWidget {
 
 class _LogoPainter extends CustomPainter {
   @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    final rect = Offset.zero & size;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, Radius.circular(s * 0.24)),
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_logoStart, _logoEnd],
-        ).createShader(rect),
-    );
-    final play = Path()
-      ..moveTo(s * 0.38, s * 0.28)
-      ..lineTo(s * 0.74, s * 0.5)
-      ..lineTo(s * 0.38, s * 0.72)
-      ..close();
-    canvas.drawPath(play, Paint()..color = Colors.white);
-    // The cut: a slanted gap through the triangle.
-    canvas.drawLine(
-      Offset(s * 0.28, s * 0.66),
-      Offset(s * 0.70, s * 0.30),
-      Paint()
-        ..color = const Color(0xFFA05BD5)
-        ..strokeWidth = s * 0.07
-        ..strokeCap = StrokeCap.round,
-    );
-  }
+  void paint(Canvas canvas, Size size) => paintCutlineLogo(canvas, size);
 
   @override
   bool shouldRepaint(_LogoPainter oldDelegate) => false;
+}
+
+/// Draws the logo filling [size]. Also used to make the app icons
+/// (tool/make_icons_test.dart).
+void paintCutlineLogo(Canvas canvas, Size size) {
+  final s = size.width;
+  final rect = Offset.zero & size;
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(rect, Radius.circular(s * 0.24)),
+    Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_logoStart, _logoEnd],
+      ).createShader(rect),
+  );
+  final play = Path()
+    ..moveTo(s * 0.38, s * 0.28)
+    ..lineTo(s * 0.74, s * 0.5)
+    ..lineTo(s * 0.38, s * 0.72)
+    ..close();
+  canvas.drawPath(play, Paint()..color = Colors.white);
+  // The cut: a slanted gap through the triangle.
+  canvas.drawLine(
+    Offset(s * 0.28, s * 0.66),
+    Offset(s * 0.70, s * 0.30),
+    Paint()
+      ..color = const Color(0xFFA05BD5)
+      ..strokeWidth = s * 0.07
+      ..strokeCap = StrokeCap.round,
+  );
 }
 
 class SplashScreen extends ConsumerWidget {
