@@ -102,6 +102,20 @@ abstract final class CutIcons {
   // Chat
   static const send = PhosphorIconsBold.arrowUp;
   static const chat = PhosphorIconsRegular.chatCircleText;
+
+  // Editor (preview, timeline, inspectors)
+  static const ambient = PhosphorIconsRegular.sun;
+  static const ambientFill = PhosphorIconsFill.sun;
+  static const opacity = PhosphorIconsRegular.drop;
+  static const rotate = PhosphorIconsRegular.arrowClockwise;
+  static const fadeIn = PhosphorIconsRegular.trendUp;
+  static const fadeOut = PhosphorIconsRegular.trendDown;
+  static const pitch = PhosphorIconsRegular.arrowsDownUp;
+  static const speed = PhosphorIconsRegular.gauge;
+  static const animation = PhosphorIconsRegular.lightning;
+  static const grip = PhosphorIconsRegular.dotsSixVertical;
+  static const saved = PhosphorIconsRegular.checkCircle;
+  static const cloud = PhosphorIconsRegular.cloudCheck;
 }
 
 /// Size presets.

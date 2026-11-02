@@ -26,6 +26,11 @@ import '../memes/meme_search.dart';
 import '../overlays/overlay_actions.dart';
 import '../titles/title_actions.dart';
 import '../titles/title_editor_dialog.dart';
+import '../ui/app_menu.dart';
+import '../ui/editor/tool_button.dart';
+import '../ui/tokens.dart';
+import '../ui/widgets/cut_icons.dart';
+import '../ui/widgets/cut_widgets.dart';
 import 'timeline_geometry.dart';
 import 'timeline_layout.dart';
 import 'timeline_painter.dart';
@@ -176,6 +181,7 @@ void _show(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
+/// The timeline: a slim toolbar, track headers on the left and the tracks.
 class TimelinePanel extends ConsumerWidget {
   const TimelinePanel({super.key});
 
@@ -184,23 +190,185 @@ class TimelinePanel extends ConsumerWidget {
     final hasClips = ref.watch(
       projectEditorProvider.select((s) => s.project.clips.isNotEmpty),
     );
-    final colors = Theme.of(context).colorScheme;
+    final compact = isCompact(context);
+    final headerWidth = compact
+        ? TrackHeaders.compactWidth
+        : TrackHeaders.width;
     return ColoredBox(
-      color: colors.surfaceContainerLow,
-      child: Column(
-        children: [
-          const _Toolbar(),
-          Divider(height: 1, color: colors.outlineVariant),
-          Expanded(
-            child: hasClips
-                ? const TimelineTracks()
-                : Center(
-                    child: Text(
-                      'Import a video to start editing',
-                      style: TextStyle(color: colors.onSurfaceVariant),
+      color: Cut.surface1,
+      child: LayoutBuilder(
+        builder: (context, box) => Column(
+          children: [
+            _Toolbar(tracksWidth: box.maxWidth - headerWidth),
+            Expanded(
+              child: hasClips
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TrackHeaders(compact: compact),
+                        const Expanded(child: TimelineTracks()),
+                      ],
+                    )
+                  : const _EmptyTimeline(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyTimeline extends StatelessWidget {
+  const _EmptyTimeline();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: Cut.base,
+        borderRadius: BorderRadius.circular(CutRadii.md),
+        border: Border.all(color: Cut.strokeSubtle),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final row in TimelineRows.tracks)
+                    Container(
+                      width: 22,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: row.color.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
-                  ),
+                ],
+              ),
+              const SizedBox(height: CutSpace.s3),
+              Text(
+                'Your timeline appears here',
+                style: CutType.bodyStrong.copyWith(color: Cut.textSecondary),
+              ),
+              const SizedBox(height: 2),
+              Text('Import a video to start editing', style: CutType.caption),
+            ],
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The row names down the left side, each with a bar in its track colour.
+class TrackHeaders extends StatelessWidget {
+  const TrackHeaders({super.key, this.compact = false});
+
+  final bool compact;
+
+  static const width = 104.0;
+  static const compactWidth = 34.0;
+
+  static const _icons = [
+    CutIcons.video,
+    CutIcons.audio,
+    CutIcons.text,
+    CutIcons.layers,
+    CutIcons.mic,
+    CutIcons.music,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: compact ? compactWidth : width,
+      decoration: const BoxDecoration(
+        border: Border(right: BorderSide(color: Cut.strokeSubtle)),
+      ),
+      child: Stack(
+        children: [
+          // Lines up with the ruler.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: TimelineRows.ruler.bottom,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Cut.base,
+                border: Border(bottom: BorderSide(color: Cut.strokeSubtle)),
+              ),
+              child: compact
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('TRACKS', style: CutType.overline),
+                      ),
+                    ),
+            ),
+          ),
+          for (final (i, row) in TimelineRows.tracks.indexed)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: row.top,
+              height: row.height,
+              child: Tooltip(
+                message: row.label,
+                waitDuration: const Duration(milliseconds: 600),
+                child: compact
+                    ? Center(child: Icon(_icons[i], size: 15, color: row.color))
+                    : Padding(
+                        padding: const EdgeInsets.only(left: 12, right: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 3,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: row.color,
+                                borderRadius: BorderRadius.circular(2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: row.color.withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                row.label.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.fade,
+                                softWrap: false,
+                                style: CutType.overline.copyWith(
+                                  color: Color.lerp(
+                                    row.color,
+                                    Cut.textSecondary,
+                                    0.35,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _icons[i],
+                              size: 13,
+                              color: Cut.textTertiary.withValues(alpha: 0.7),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
         ],
       ),
     );
@@ -208,7 +376,10 @@ class TimelinePanel extends ConsumerWidget {
 }
 
 class _Toolbar extends ConsumerWidget {
-  const _Toolbar();
+  const _Toolbar({required this.tracksWidth});
+
+  /// How wide the tracks are, for zoom-to-fit.
+  final double tracksWidth;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -216,102 +387,152 @@ class _Toolbar extends ConsumerWidget {
     final hasClips = ref.watch(
       projectEditorProvider.select((s) => s.project.clips.isNotEmpty),
     );
+    final duration = ref.watch(
+      projectEditorProvider.select((s) => s.project.duration),
+    );
+    final recording = ref.watch(recordingProvider.select((r) => r.open));
     final zoom = ref.read(timelineUiProvider.notifier);
-    // On a narrow screen the buttons scroll sideways instead of being cut
-    // off.
-    final narrow = MediaQuery.sizeOf(context).width < 720;
-    final row = Row(
-      mainAxisSize: narrow ? MainAxisSize.min : MainAxisSize.max,
-      children: [
-        const SizedBox(width: 8),
-        if (!narrow)
-          IconButton(
-            key: const Key('split'),
-            tooltip: 'Split at playhead (S)',
-            icon: const Icon(Icons.content_cut, size: 18),
-            onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
-          ),
-        IconButton(
-          key: const Key('delete'),
-          tooltip: 'Delete (Delete)',
-          icon: const Icon(Icons.delete_outline, size: 18),
-          onPressed:
-              ui.selectedClipId != null ||
-                  ui.selectedTitleId != null ||
-                  ui.selectedOverlayId != null ||
-                  ui.selectedAudioId != null
-              ? () => deleteSelectedClip(ref, context)
+    final hasSelection =
+        ui.selectedClipId != null ||
+        ui.selectedTitleId != null ||
+        ui.selectedOverlayId != null ||
+        ui.selectedAudioId != null;
+    // On a phone the bottom bar has split, titles and voiceover, so only
+    // the rest shows here.
+    final narrow = isCompact(context);
+    final tools = <Widget>[
+      if (!narrow)
+        EditorToolButton(
+          key: const Key('split'),
+          tooltip: 'Split at playhead',
+          keys: const ['S'],
+          icon: const Icon(CutIcons.split),
+          onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
+        ),
+      EditorToolButton(
+        key: const Key('delete'),
+        tooltip: 'Delete selection',
+        keys: const ['⌫'],
+        icon: const Icon(CutIcons.trash),
+        onPressed: hasSelection ? () => deleteSelectedClip(ref, context) : null,
+      ),
+      if (!narrow) ...[
+        const ToolbarGap(),
+        EditorToolButton(
+          key: const Key('add-title'),
+          tooltip: 'Add title or intro',
+          icon: const Icon(CutIcons.title),
+          onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
+        ),
+        EditorToolButton(
+          key: const Key('add-overlay'),
+          tooltip: 'Add a picture, GIF or video on top',
+          icon: const Icon(CutIcons.addImage),
+          onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
+        ),
+        const ToolbarGap(),
+        EditorToolButton(
+          key: const Key('record-voiceover'),
+          tooltip: recording ? 'Close the recorder' : 'Record a voiceover',
+          icon: Icon(recording ? CutIcons.micFill : CutIcons.mic),
+          selected: recording,
+          onPressed: hasClips
+              ? () {
+                  final rec = ref.read(recordingProvider.notifier);
+                  ref.read(recordingProvider).open ? rec.hide() : rec.show();
+                }
               : null,
         ),
-        if (!narrow)
-          IconButton(
-            key: const Key('add-title'),
-            tooltip: 'Add title or intro',
-            icon: const Icon(Icons.title, size: 18),
-            onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
+        EditorToolButton(
+          key: const Key('ai-voiceover'),
+          tooltip: 'AI voiceover from a script',
+          icon: hasClips
+              ? const AuroraMask(child: Icon(CutIcons.voice))
+              : const Icon(CutIcons.voice),
+          onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
+        ),
+      ],
+      EditorToolButton(
+        key: const Key('add-music'),
+        tooltip: 'Add music or a sound',
+        icon: const Icon(CutIcons.musicLibrary),
+        onPressed: hasClips ? () => showMusicBrowser(context) : null,
+      ),
+      if (hasClips) const AudioMixButton(),
+    ];
+    final zoomPill = Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: Cut.surface2,
+        borderRadius: BorderRadius.circular(CutRadii.pill),
+        border: Border.all(color: Cut.strokeSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EditorToolButton(
+            size: 26,
+            tooltip: 'Zoom out',
+            keys: const ['−'],
+            icon: const Icon(CutIcons.zoomOut, size: 15),
+            onPressed: () => zoom.zoomBy(1 / 1.5),
           ),
-        if (!narrow)
-          IconButton(
-            key: const Key('add-overlay'),
-            tooltip: 'Add a picture, GIF or video on top',
-            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-            onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
+          SizedBox(
+            width: narrow ? 64 : 96,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                overlayShape: SliderComponentShape.noOverlay,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              ),
+              child: Slider(
+                // Log scale so the slider feels even from minutes to frames.
+                value: math.log(ui.pixelsPerSecond),
+                min: math.log(0.5),
+                max: math.log(600),
+                onChanged: (v) => zoom.setZoom(math.exp(v)),
+              ),
+            ),
           ),
-        if (!narrow)
-          IconButton(
-            key: const Key('record-voiceover'),
-            tooltip: 'Record a voiceover',
-            icon: const Icon(Icons.mic_none, size: 18),
-            onPressed: hasClips
-                ? () {
-                    final rec = ref.read(recordingProvider.notifier);
-                    ref.read(recordingProvider).open ? rec.hide() : rec.show();
-                  }
+          EditorToolButton(
+            size: 26,
+            tooltip: 'Zoom in',
+            keys: const ['='],
+            icon: const Icon(CutIcons.zoomIn, size: 15),
+            onPressed: () => zoom.zoomBy(1.5),
+          ),
+          EditorToolButton(
+            key: const Key('zoom-fit'),
+            size: 26,
+            tooltip: 'Fit the whole edit',
+            icon: const Icon(CutIcons.fit, size: 15),
+            onPressed: duration > Duration.zero
+                ? () => zoom.setZoom(
+                    (tracksWidth - 48) / (duration.inMilliseconds / 1000),
+                  )
                 : null,
           ),
-        if (!narrow)
-          IconButton(
-            key: const Key('ai-voiceover'),
-            tooltip: 'AI voiceover from a script',
-            icon: const Icon(Icons.record_voice_over_outlined, size: 18),
-            onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
-          ),
-        IconButton(
-          key: const Key('add-music'),
-          tooltip: 'Add music or a sound',
-          icon: const Icon(Icons.library_music_outlined, size: 18),
-          onPressed: hasClips ? () => showMusicBrowser(context) : null,
-        ),
-        if (hasClips) const AudioMixButton(),
-        if (narrow) const SizedBox(width: 16) else const Spacer(),
-        IconButton(
-          tooltip: 'Zoom out (-)',
-          icon: const Icon(Icons.zoom_out, size: 18),
-          onPressed: () => zoom.zoomBy(1 / 1.5),
-        ),
-        SizedBox(
-          width: 120,
-          child: Slider(
-            // Log scale so the slider feels even from minutes to frames.
-            value: math.log(ui.pixelsPerSecond),
-            min: math.log(0.5),
-            max: math.log(600),
-            onChanged: (v) => zoom.setZoom(math.exp(v)),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Zoom in (=)',
-          icon: const Icon(Icons.zoom_in, size: 18),
-          onPressed: () => zoom.zoomBy(1.5),
-        ),
-        const SizedBox(width: 8),
-      ],
+        ],
+      ),
     );
     return SizedBox(
-      height: 36,
-      child: narrow
-          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: row)
-          : row,
+      height: narrow ? 48 : 40,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: CutSpace.s2),
+        child: Row(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: tools),
+              ),
+            ),
+            const SizedBox(width: CutSpace.s2),
+            zoomPill,
+          ],
+        ),
+      ),
     );
   }
 }
@@ -588,7 +809,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         : null;
     _dragStartX = d.localPosition.dx;
     if (hit == null) {
-      _dragKind = _DragKind.scrub;
+      setState(() => _dragKind = _DragKind.scrub);
       _seekTo(d.localPosition.dx);
       return;
     }
@@ -625,7 +846,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       case _DragKind.moveTitle when _titleDrag != null:
         var start = g.timeAt(d.localPosition.dx) - _spanGrab;
         if (start < Duration.zero) start = Duration.zero;
-        start = g.snap(start, [
+        start = _snapped(g, start, [
           Duration.zero,
           _position.value,
           ...g.project.clipStarts,
@@ -635,7 +856,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         final od = _spanDrag!;
         var start = g.timeAt(d.localPosition.dx) - _spanGrab;
         if (start < Duration.zero) start = Duration.zero;
-        start = g.snap(start, [
+        start = _snapped(g, start, [
           Duration.zero,
           _position.value,
           ...g.project.clipStarts,
@@ -652,7 +873,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         );
       case _DragKind.trimSpan when _spanDrag != null:
         final od = _spanDrag!;
-        var end = g.snap(g.timeAt(d.localPosition.dx), [
+        var end = _snapped(g, g.timeAt(d.localPosition.dx), [
           _position.value,
           ...g.project.clipStarts,
           g.project.duration,
@@ -681,14 +902,28 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
           _drag = TrimDrag(
             index: drag.index,
             left: drag.left,
-            edgeTime: g.snap(raw, targets),
+            edgeTime: _snapped(g, raw, targets),
           );
         });
       default:
     }
   }
 
+  /// Where a dragged edge snaps to, flashing a guide line when it did.
+  double? _guideX;
+
+  Duration _snapped(TimelineGeometry g, Duration t, List<Duration> targets) {
+    final snapped = g.snap(t, targets);
+    final guide = snapped != t ? g.xOf(snapped) : null;
+    if (guide != _guideX) {
+      _guideX = guide;
+      if (guide != null) unawaited(HapticFeedback.selectionClick());
+    }
+    return snapped;
+  }
+
   void _onPanEnd(DragEndDetails _) {
+    _guideX = null;
     final span = _spanDrag;
     if (span != null) {
       setState(() {
@@ -817,9 +1052,32 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                   .value ??
               MediaPreview.empty,
     };
-    final colors = TimelineColors.of(Theme.of(context).colorScheme);
+    const colors = TimelineColors();
     final drag = _drag;
     final boxes = layoutClips(g, drag: drag);
+    // How much a trim or stretch changes the length, shown by the edge.
+    ({double x, Duration delta})? trim;
+    if (drag is TrimDrag) {
+      final box = boxes[drag.index];
+      trim = (
+        x: drag.left ? box.left : box.right,
+        delta: box.clip.duration - project.clips[drag.index].duration,
+      );
+    } else if (_dragKind == _DragKind.trimSpan && _spanDrag != null) {
+      final span = _spanDrag!;
+      final before = span.audio
+          ? project.audio.where((a) => a.id == span.id).firstOrNull?.duration
+          : project.overlays
+                .where((o) => o.id == span.id)
+                .firstOrNull
+                ?.duration;
+      if (before != null) {
+        trim = (
+          x: g.xOf(span.start + span.duration),
+          delta: span.duration - before,
+        );
+      }
+    }
     double? dropX;
     if (drag is MoveDrag) {
       final to = g.dropIndex(drag.x, drag.index);
@@ -872,7 +1130,11 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                     foregroundDecoration: candidates.isEmpty
                         ? null
                         : BoxDecoration(
-                            color: colors.selected.withValues(alpha: 0.08),
+                            color: Cut.trackOverlay.withValues(alpha: 0.08),
+                            border: Border.all(
+                              color: Cut.trackOverlay.withValues(alpha: 0.5),
+                            ),
+                            borderRadius: BorderRadius.circular(CutRadii.sm),
                           ),
                     child: GestureDetector(
                       key: const Key('timeline-tracks'),
@@ -903,11 +1165,14 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                             selectedOverlayId: ui.selectedOverlayId,
                             spanDrag: _spanDrag,
                             selectedAudioId: ui.selectedAudioId,
+                            trim: trim,
+                            guideX: _dragKind == null ? null : _guideX,
                           ),
                           foregroundPainter: PlayheadPainter(
                             geometry: g,
                             position: _position,
                             color: colors.playhead,
+                            scrubbing: _dragKind == _DragKind.scrub,
                           ),
                         ),
                       ),
