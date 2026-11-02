@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'duration_converter.dart';
+import 'voice_effect.dart';
 
 part 'audio_item.freezed.dart';
 part 'audio_item.g.dart';
@@ -40,11 +41,20 @@ abstract class AudioItem with _$AudioItem {
     @Default(1.0) double volume,
     @DurationConverter() @Default(Duration.zero) Duration fadeIn,
     @DurationConverter() @Default(Duration.zero) Duration fadeOut,
+    @Default(VoiceEffect()) VoiceEffect effect,
   }) = _AudioItem;
 
   factory AudioItem.fromJson(Map<String, dynamic> json) =>
       _$AudioItemFromJson(json);
 
-  Duration get duration => sourceEnd - sourceStart;
+  /// The part of the file that plays.
+  Duration get sourceLength => sourceEnd - sourceStart;
+
+  /// How long it plays on the timeline (shorter when sped up).
+  Duration get duration => effect.speed == 1
+      ? sourceLength
+      : Duration(
+          microseconds: (sourceLength.inMicroseconds / effect.speed).round(),
+        );
   Duration get end => start + duration;
 }

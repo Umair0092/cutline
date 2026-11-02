@@ -11,6 +11,7 @@ import '../model/overlay_item.dart';
 import '../settings/preferences.dart';
 import '../transcript/transcript.dart';
 import '../model/speech_spec.dart';
+import '../model/voice_effect.dart';
 import '../voice/tts.dart';
 import '../voice/voiceover_actions.dart';
 import 'meme_tools.dart';
@@ -393,6 +394,39 @@ class EditToolbox {
       ['audio_id'],
     ),
     _tool(
+      'set_voice_effect',
+      'Change how a voice sounds: pitch, speed, robot, noise cleanup, '
+          'even loudness. "target" is "video" (the main video\'s sound, every '
+          'clip: usually the user\'s own voice), a clip_id, or an audio_id '
+          'from "audio". Fields you leave out keep their current value; a '
+          'preset replaces pitch and robot. "reset": true removes the effect.',
+      {
+        'target': {'type': 'string'},
+        'preset': {
+          'type': 'string',
+          'enum': [for (final p in VoicePreset.values) p.name],
+        },
+        'pitch': {
+          'type': 'number',
+          'minimum': -12,
+          'maximum': 12,
+          'description':
+              'Semitones. "A bit deeper" is about -2; "much higher" +5.',
+        },
+        'speed': {
+          'type': 'number',
+          'minimum': 0.5,
+          'maximum': 2,
+          'description': 'Audio track only.',
+        },
+        'robot': {'type': 'boolean'},
+        'denoise': {'type': 'boolean'},
+        'normalize': {'type': 'boolean'},
+        'reset': {'type': 'boolean'},
+      },
+      ['target'],
+    ),
+    _tool(
       'seek',
       'Move the playhead to a time so the user can look at that moment. '
           'Not an edit.',
@@ -504,6 +538,7 @@ class EditToolbox {
       'seek' => (null, _clampToProject(_time(input, 'time'), project)),
       'add_meme' => (await _addMeme(input, project, context), null),
       'add_voiceover' => (await _addVoiceover(input, project, context), null),
+      'set_voice_effect' => (_setVoiceEffect(input, project), null),
       'remake_voiceover_line' => (
         await _remakeLine(input, project, context),
         null,
@@ -802,6 +837,62 @@ class EditToolbox {
             '${problems.isEmpty ? '' : '; the skipped ones had no meme'}.',
       }),
     );
+  }
+
+  EditCommand _setVoiceEffect(Map<String, dynamic> input, Project project) {
+    final target = _string(input, 'target');
+    bool? flag(String key) {
+      final v = input[key];
+      if (v == null) return null;
+      if (v is! bool) throw _BadInput('"$key" must be true or false.');
+      return v;
+    }
+
+    VoiceEffect merged(VoiceEffect current) {
+      if (flag('reset') ?? false) return VoiceEffect.none;
+      var e = current;
+      final preset = input['preset'];
+      if (preset != null) {
+        if (preset is! String ||
+            !VoicePreset.values.any((p) => p.name == preset)) {
+          throw _BadInput(
+            '"preset" must be one of: '
+            '${VoicePreset.values.map((p) => p.name).join(', ')}.',
+          );
+        }
+        final p = VoicePreset.values.byName(preset).effect;
+        e = e.copyWith(pitch: p.pitch, robot: p.robot);
+      }
+      if (input.containsKey('pitch')) {
+        e = e.copyWith(pitch: _number(input, 'pitch', -12, 12));
+      }
+      if (input.containsKey('speed')) {
+        e = e.copyWith(speed: _number(input, 'speed', 0.5, 2));
+      }
+      e = e.copyWith(
+        robot: flag('robot') ?? e.robot,
+        denoise: flag('denoise') ?? e.denoise,
+        normalize: flag('normalize') ?? e.normalize,
+      );
+      return e;
+    }
+
+    final audio = project.audio.where((a) => a.id == target).firstOrNull;
+    if (audio != null) {
+      return UpdateAudio(audio.id, effect: merged(audio.effect));
+    }
+    if (target == 'video') {
+      if (project.clips.isEmpty) throw _BadInput('There are no clips.');
+      return SetClipEffect(merged(project.clips.first.effect));
+    }
+    final clip = project.clips.where((c) => c.id == target).firstOrNull;
+    if (clip == null) {
+      throw _BadInput(
+        '"target" must be "video", a clip_id or an audio_id; "$target" is '
+        'none of those.',
+      );
+    }
+    return SetClipEffect(merged(clip.effect), clipIds: [clip.id]);
   }
 
   Future<EditCommand> _addVoiceover(

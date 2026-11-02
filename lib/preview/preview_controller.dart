@@ -30,8 +30,11 @@ final previewProvider = Provider<PreviewController>((ref) {
   // the last change, then played next to the video.
   Timer? mixTimer;
   var mixVersion = 0;
+  var replacing = false;
   void syncAudio(EditorState state) {
-    unawaited(controller.setVolume(state.project.mix.original));
+    // While a mix with the video's processed sound is in use, the video
+    // stays muted; otherwise it plays at the mix's "video sound" level.
+    if (!replacing) unawaited(controller.setVolume(state.project.mix.original));
     mixTimer?.cancel();
     mixTimer = Timer(const Duration(milliseconds: 300), () async {
       final version = ++mixVersion;
@@ -42,13 +45,16 @@ final previewProvider = Provider<PreviewController>((ref) {
         'preview-cache',
         'mix',
       );
-      final path = await renderPreviewMix(
+      final mix = await renderPreviewMix(
         ffmpeg: ffmpeg,
         project: state.project,
         projectPath: state.workPath,
         cacheDir: cache,
       );
-      if (version == mixVersion) await controller.setExtraAudio(path);
+      if (version != mixVersion) return;
+      replacing = mix?.replacesVideoSound ?? false;
+      await controller.setVolume(replacing ? 0 : state.project.mix.original);
+      await controller.setExtraAudio(mix?.path);
     });
   }
 
@@ -146,6 +152,9 @@ class MpvPreviewController implements PreviewController {
           .timeout(const Duration(seconds: 10), onTimeout: () => Duration.zero);
     }
   }
+
+  /// The file the extra player plays, if any.
+  String? get extraAudioPath => _extraPath;
 
   /// Plays [path] (a WAV as long as the video) along with the video, or
   /// nothing when null.

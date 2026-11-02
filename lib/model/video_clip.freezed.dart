@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$VideoClip {
 
- String get id; String get mediaId;@DurationConverter() Duration get sourceStart;@DurationConverter() Duration get sourceEnd; double get volume;
+ String get id; String get mediaId;@DurationConverter() Duration get sourceStart;@DurationConverter() Duration get sourceEnd; double get volume; VoiceEffect get effect;
 /// Create a copy of VideoClip
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $VideoClipCopyWith<VideoClip> get copyWith => _$VideoClipCopyWithImpl<VideoClip>
 @override
 bool operator ==(Object other) {
   final _this = this as VideoClip;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoClip&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.sourceStart, _this.sourceStart) || other.sourceStart == _this.sourceStart)&&(identical(other.sourceEnd, _this.sourceEnd) || other.sourceEnd == _this.sourceEnd)&&(identical(other.volume, _this.volume) || other.volume == _this.volume));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoClip&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.sourceStart, _this.sourceStart) || other.sourceStart == _this.sourceStart)&&(identical(other.sourceEnd, _this.sourceEnd) || other.sourceEnd == _this.sourceEnd)&&(identical(other.volume, _this.volume) || other.volume == _this.volume)&&(identical(other.effect, _this.effect) || other.effect == _this.effect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as VideoClip;
-  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.sourceStart,_this.sourceEnd,_this.volume);
+  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.sourceStart,_this.sourceEnd,_this.volume,_this.effect);
 }
 
 @override
 String toString() {
   final _this = this as VideoClip;
-  return 'VideoClip(id: ${_this.id}, mediaId: ${_this.mediaId}, sourceStart: ${_this.sourceStart}, sourceEnd: ${_this.sourceEnd}, volume: ${_this.volume})';
+  return 'VideoClip(id: ${_this.id}, mediaId: ${_this.mediaId}, sourceStart: ${_this.sourceStart}, sourceEnd: ${_this.sourceEnd}, volume: ${_this.volume}, effect: ${_this.effect})';
 }
 
 
@@ -54,11 +54,11 @@ abstract mixin class $VideoClipCopyWith<$Res>  {
   factory $VideoClipCopyWith(VideoClip value, $Res Function(VideoClip) _then) = _$VideoClipCopyWithImpl;
 @useResult
 $Res call({
- String id, String mediaId,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume
+ String id, String mediaId,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume, VoiceEffect effect
 });
 
 
-
+$VoiceEffectCopyWith<$Res> get effect;
 
 }
 /// @nodoc
@@ -71,17 +71,27 @@ class _$VideoClipCopyWithImpl<$Res>
 
 /// Create a copy of VideoClip
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? effect = null,}) {
   return _then(VideoClip(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
 as String,sourceStart: null == sourceStart ? _self.sourceStart : sourceStart // ignore: cast_nullable_to_non_nullable
 as Duration,sourceEnd: null == sourceEnd ? _self.sourceEnd : sourceEnd // ignore: cast_nullable_to_non_nullable
 as Duration,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
-as double,
+as double,effect: null == effect ? _self.effect : effect // ignore: cast_nullable_to_non_nullable
+as VoiceEffect,
   ));
 }
-
+/// Create a copy of VideoClip
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VoiceEffectCopyWith<$Res> get effect {
+  
+  return $VoiceEffectCopyWith<$Res>(_self.effect, (value) {
+    return _then(_self.copyWith(effect: value));
+  });
+}
 }
 
 
@@ -163,10 +173,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume,  VoiceEffect effect)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoClip() when $default != null:
-return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume);case _:
+return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume,_that.effect);case _:
   return orElse();
 
 }
@@ -184,10 +194,10 @@ return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.v
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume,  VoiceEffect effect)  $default,) {final _that = this;
 switch (_that) {
 case _VideoClip():
-return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume);case _:
+return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume,_that.effect);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +214,10 @@ return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.v
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume,  VoiceEffect effect)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoClip() when $default != null:
-return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume);case _:
+return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.volume,_that.effect);case _:
   return null;
 
 }
@@ -219,7 +229,7 @@ return $default(_that.id,_that.mediaId,_that.sourceStart,_that.sourceEnd,_that.v
 @JsonSerializable()
 
 class _VideoClip extends VideoClip {
-  const _VideoClip({required this.id, required this.mediaId, @DurationConverter() required this.sourceStart, @DurationConverter() required this.sourceEnd, this.volume = 1.0}): super._();
+  const _VideoClip({required this.id, required this.mediaId, @DurationConverter() required this.sourceStart, @DurationConverter() required this.sourceEnd, this.volume = 1.0, this.effect = const VoiceEffect()}): super._();
   factory _VideoClip.fromJson(Map<String, dynamic> json) => _$VideoClipFromJson(json);
 
 @override final  String id;
@@ -227,6 +237,7 @@ class _VideoClip extends VideoClip {
 @override@DurationConverter() final  Duration sourceStart;
 @override@DurationConverter() final  Duration sourceEnd;
 @override@JsonKey() final  double volume;
+@override@JsonKey() final  VoiceEffect effect;
 
 /// Create a copy of VideoClip
 /// with the given fields replaced by the non-null parameter values.
@@ -241,18 +252,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoClip&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.sourceStart, sourceStart) || other.sourceStart == sourceStart)&&(identical(other.sourceEnd, sourceEnd) || other.sourceEnd == sourceEnd)&&(identical(other.volume, volume) || other.volume == volume));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoClip&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.sourceStart, sourceStart) || other.sourceStart == sourceStart)&&(identical(other.sourceEnd, sourceEnd) || other.sourceEnd == sourceEnd)&&(identical(other.volume, volume) || other.volume == volume)&&(identical(other.effect, effect) || other.effect == effect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,mediaId,sourceStart,sourceEnd,volume);
+    return Object.hash(runtimeType,id,mediaId,sourceStart,sourceEnd,volume,effect);
 }
 
 @override
 String toString() {
-    return 'VideoClip(id: $id, mediaId: $mediaId, sourceStart: $sourceStart, sourceEnd: $sourceEnd, volume: $volume)';
+    return 'VideoClip(id: $id, mediaId: $mediaId, sourceStart: $sourceStart, sourceEnd: $sourceEnd, volume: $volume, effect: $effect)';
 }
 
 
@@ -263,11 +274,11 @@ abstract mixin class _$VideoClipCopyWith<$Res> implements $VideoClipCopyWith<$Re
   factory _$VideoClipCopyWith(_VideoClip value, $Res Function(_VideoClip) _then) = __$VideoClipCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String mediaId,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume
+ String id, String mediaId,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume, VoiceEffect effect
 });
 
 
-
+@override $VoiceEffectCopyWith<$Res> get effect;
 
 }
 /// @nodoc
@@ -280,18 +291,28 @@ class __$VideoClipCopyWithImpl<$Res>
 
 /// Create a copy of VideoClip
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? effect = null,}) {
   return _then(_VideoClip(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
 as String,sourceStart: null == sourceStart ? _self.sourceStart : sourceStart // ignore: cast_nullable_to_non_nullable
 as Duration,sourceEnd: null == sourceEnd ? _self.sourceEnd : sourceEnd // ignore: cast_nullable_to_non_nullable
 as Duration,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
-as double,
+as double,effect: null == effect ? _self.effect : effect // ignore: cast_nullable_to_non_nullable
+as VoiceEffect,
   ));
 }
 
-
+/// Create a copy of VideoClip
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VoiceEffectCopyWith<$Res> get effect {
+  
+  return $VoiceEffectCopyWith<$Res>(_self.effect, (value) {
+    return _then(_self.copyWith(effect: value));
+  });
+}
 }
 
 // dart format on

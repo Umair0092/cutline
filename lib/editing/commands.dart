@@ -6,6 +6,7 @@ import '../model/overlay_item.dart';
 import '../model/project.dart';
 import '../model/title_item.dart';
 import '../model/video_clip.dart';
+import '../model/voice_effect.dart';
 import 'edit_command.dart';
 
 const _uuid = Uuid();
@@ -387,6 +388,7 @@ class UpdateAudio extends EditCommand {
     this.volume,
     this.fadeIn,
     this.fadeOut,
+    this.effect,
   });
   final String itemId;
   final Duration? start;
@@ -394,9 +396,10 @@ class UpdateAudio extends EditCommand {
   final double? volume;
   final Duration? fadeIn;
   final Duration? fadeOut;
+  final VoiceEffect? effect;
 
   @override
-  String get label => 'Change audio';
+  String get label => effect != null ? 'Voice effect' : 'Change audio';
 
   @override
   Project apply(Project project) {
@@ -409,7 +412,9 @@ class UpdateAudio extends EditCommand {
       volume: volume ?? a.volume,
       fadeIn: fadeIn ?? a.fadeIn,
       fadeOut: fadeOut ?? a.fadeOut,
+      effect: effect ?? a.effect,
     );
+    _checkEffect(updated.effect, speed: true);
     if (updated.start < Duration.zero ||
         updated.duration < minClipDuration ||
         (media != null &&
@@ -425,6 +430,49 @@ class UpdateAudio extends EditCommand {
     }
     return project.copyWith(
       audio: [for (final x in project.audio) x.id == itemId ? updated : x],
+    );
+  }
+}
+
+/// Sets the voice effect on main-track clips (all of them when [clipIds]
+/// is null). The main track can't change speed, so speed must stay 1.
+class SetClipEffect extends EditCommand {
+  const SetClipEffect(this.effect, {this.clipIds});
+  final VoiceEffect effect;
+  final List<String>? clipIds;
+
+  @override
+  String get label => effect.isNone ? 'Remove voice effect' : 'Voice effect';
+
+  @override
+  Project apply(Project project) {
+    _checkEffect(effect, speed: false);
+    final ids = clipIds;
+    if (ids != null) {
+      for (final id in ids) {
+        _clip(project, id);
+      }
+    }
+    return project.copyWith(
+      clips: [
+        for (final c in project.clips)
+          ids == null || ids.contains(c.id) ? c.copyWith(effect: effect) : c,
+      ],
+    );
+  }
+}
+
+void _checkEffect(VoiceEffect e, {required bool speed}) {
+  if (e.pitch < -12 || e.pitch > 12) {
+    throw EditException('Pitch must be between -12 and 12 semitones.');
+  }
+  if (e.speed < 0.5 || e.speed > 2) {
+    throw EditException('Speed must be between 0.5 and 2.');
+  }
+  if (!speed && e.speed != 1) {
+    throw EditException(
+      'The video\'s own sound can\'t change speed; only audio on the audio '
+      'track can.',
     );
   }
 }

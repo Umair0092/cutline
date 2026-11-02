@@ -12,6 +12,7 @@ class CommitSlider extends StatefulWidget {
     required this.max,
     required this.onCommit,
     this.width = 110,
+    this.divisions,
   });
 
   final IconData icon;
@@ -20,6 +21,7 @@ class CommitSlider extends StatefulWidget {
   final double min;
   final double max;
   final double width;
+  final int? divisions;
   final ValueChanged<double> onCommit;
 
   @override
@@ -43,6 +45,7 @@ class _CommitSliderState extends State<CommitSlider> {
               value: (_dragging ?? widget.value).clamp(widget.min, widget.max),
               min: widget.min,
               max: widget.max,
+              divisions: widget.divisions,
               onChanged: (v) => setState(() => _dragging = v),
               onChangeEnd: (v) {
                 setState(() => _dragging = null);

@@ -67,12 +67,7 @@ List<String> buildExportArgs({
       'fps=$fps,format=yuv420p,setpts=PTS-STARTPTS[v$i]',
     );
     if (media.hasAudio) {
-      filters.add(
-        '[$i:a:0]aresample=48000,'
-        'aformat=sample_fmts=fltp:channel_layouts=stereo,'
-        'volume=${clip.volume.toStringAsFixed(3)},'
-        'apad,atrim=duration=$length,asetpts=PTS-STARTPTS[a$i]',
-      );
+      filters.add(clipAudioFilter(i, clip, length));
     } else {
       filters.add(
         'anullsrc=r=48000:cl=stereo,atrim=duration=$length,'

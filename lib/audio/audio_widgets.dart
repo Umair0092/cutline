@@ -8,6 +8,7 @@ import '../timeline/timeline_state.dart';
 import '../ui/commit_slider.dart';
 import '../ui/time_format.dart';
 import '../voice/voiceover_dialog.dart';
+import 'effect_controls.dart';
 import 'recording.dart';
 
 void _run(BuildContext context, WidgetRef ref, EditCommand command) {
@@ -219,6 +220,11 @@ class AudioInspector extends ConsumerWidget {
                 fadeOut: Duration(milliseconds: (v * 1000).round()),
               ),
             ),
+          ),
+          VoiceEffectControls(
+            effect: a.effect,
+            allowSpeed: true,
+            onChanged: (e) => _run(context, ref, UpdateAudio(a.id, effect: e)),
           ),
           IconButton(
             tooltip: 'Delete',

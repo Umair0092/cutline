@@ -36,6 +36,9 @@ _AudioItem _$AudioItemFromJson(Map<String, dynamic> json) => _AudioItem(
   fadeOut: json['fadeOut'] == null
       ? Duration.zero
       : const DurationConverter().fromJson((json['fadeOut'] as num).toInt()),
+  effect: json['effect'] == null
+      ? const VoiceEffect()
+      : VoiceEffect.fromJson(json['effect'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$AudioItemToJson(_AudioItem instance) =>
@@ -49,6 +52,7 @@ Map<String, dynamic> _$AudioItemToJson(_AudioItem instance) =>
       'volume': instance.volume,
       'fadeIn': const DurationConverter().toJson(instance.fadeIn),
       'fadeOut': const DurationConverter().toJson(instance.fadeOut),
+      'effect': instance.effect.toJson(),
     };
 
 const _$AudioRoleEnumMap = {

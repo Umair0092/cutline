@@ -16,6 +16,9 @@ _VideoClip _$VideoClipFromJson(Map<String, dynamic> json) => _VideoClip(
     (json['sourceEnd'] as num).toInt(),
   ),
   volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
+  effect: json['effect'] == null
+      ? const VoiceEffect()
+      : VoiceEffect.fromJson(json['effect'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$VideoClipToJson(_VideoClip instance) =>
@@ -25,4 +28,5 @@ Map<String, dynamic> _$VideoClipToJson(_VideoClip instance) =>
       'sourceStart': const DurationConverter().toJson(instance.sourceStart),
       'sourceEnd': const DurationConverter().toJson(instance.sourceEnd),
       'volume': instance.volume,
+      'effect': instance.effect.toJson(),
     };

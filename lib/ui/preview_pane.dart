@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../audio/audio_widgets.dart';
+import '../audio/effect_controls.dart';
 import '../editing/project_editor.dart';
 import '../model/media_asset.dart';
 import '../overlays/overlay_actions.dart';
@@ -147,6 +148,7 @@ class _Player extends ConsumerWidget {
         const RecordBar(),
         const OverlayInspector(),
         const AudioInspector(),
+        const ClipInspector(),
         const TransportBar(),
       ],
     );

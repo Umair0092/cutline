@@ -429,7 +429,11 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       final a = project.audio.where((a) => a.id == span.id).firstOrNull;
       final media = a == null ? null : project.mediaById(a.mediaId);
       if (a != null && media != null && media.duration > Duration.zero) {
-        final room = media.duration - a.sourceStart;
+        final room = Duration(
+          microseconds:
+              ((media.duration - a.sourceStart).inMicroseconds / a.effect.speed)
+                  .round(),
+        );
         if (room < max) max = room;
       }
     }
@@ -673,7 +677,12 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
             UpdateAudio(
               span.id,
               start: span.start,
-              sourceEnd: a.sourceStart + span.duration,
+              sourceEnd:
+                  a.sourceStart +
+                  Duration(
+                    microseconds:
+                        (span.duration.inMicroseconds * a.effect.speed).round(),
+                  ),
             ),
           );
         }

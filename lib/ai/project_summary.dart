@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 
 import '../model/project.dart';
 import '../model/title_item.dart';
+import '../model/voice_effect.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
 import '../transcript/transcript.dart';
@@ -38,6 +39,8 @@ Map<String, dynamic> projectSummary(
           'sourceFrom': _s(project.clips[i].sourceStart),
           'sourceTo': _s(project.clips[i].sourceEnd),
           if (project.clips[i].volume != 1.0) 'volume': project.clips[i].volume,
+          if (!project.clips[i].effect.isNone)
+            'effect': _effect(project.clips[i].effect),
           if (project.mediaById(project.clips[i].mediaId)?.title
               case final intro?)
             'intro': _titleInfo(intro),
@@ -65,6 +68,7 @@ Map<String, dynamic> projectSummary(
             'role': a.role.name,
             'start': _s(a.start),
             'end': _s(a.end),
+            if (!a.effect.isNone) 'effect': _effect(a.effect),
             if (project.mediaById(a.mediaId)?.speech case final speech?) ...{
               'text': speech.text,
               'engine': speech.engine.name,
@@ -101,6 +105,14 @@ Map<String, dynamic> projectSummary(
     },
   };
 }
+
+Map<String, dynamic> _effect(VoiceEffect e) => {
+  if (e.pitch != 0) 'pitch': e.pitch,
+  if (e.speed != 1) 'speed': e.speed,
+  if (e.robot) 'robot': true,
+  if (e.denoise) 'denoise': true,
+  if (e.normalize) 'normalize': true,
+};
 
 /// Template and every field value (defaults filled in), so the assistant
 /// knows exactly what the title says.

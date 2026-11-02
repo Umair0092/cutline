@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'duration_converter.dart';
+import 'voice_effect.dart';
 
 part 'video_clip.freezed.dart';
 part 'video_clip.g.dart';
@@ -19,6 +20,7 @@ abstract class VideoClip with _$VideoClip {
     @DurationConverter() required Duration sourceStart,
     @DurationConverter() required Duration sourceEnd,
     @Default(1.0) double volume,
+    @Default(VoiceEffect()) VoiceEffect effect,
   }) = _VideoClip;
 
   factory VideoClip.fromJson(Map<String, dynamic> json) =>

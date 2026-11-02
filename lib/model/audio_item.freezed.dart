@@ -296,7 +296,7 @@ as bool,
 /// @nodoc
 mixin _$AudioItem {
 
- String get id; String get mediaId; AudioRole get role;@DurationConverter() Duration get start;@DurationConverter() Duration get sourceStart;@DurationConverter() Duration get sourceEnd; double get volume;@DurationConverter() Duration get fadeIn;@DurationConverter() Duration get fadeOut;
+ String get id; String get mediaId; AudioRole get role;@DurationConverter() Duration get start;@DurationConverter() Duration get sourceStart;@DurationConverter() Duration get sourceEnd; double get volume;@DurationConverter() Duration get fadeIn;@DurationConverter() Duration get fadeOut; VoiceEffect get effect;
 /// Create a copy of AudioItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -310,20 +310,20 @@ $AudioItemCopyWith<AudioItem> get copyWith => _$AudioItemCopyWithImpl<AudioItem>
 @override
 bool operator ==(Object other) {
   final _this = this as AudioItem;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AudioItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.role, _this.role) || other.role == _this.role)&&(identical(other.start, _this.start) || other.start == _this.start)&&(identical(other.sourceStart, _this.sourceStart) || other.sourceStart == _this.sourceStart)&&(identical(other.sourceEnd, _this.sourceEnd) || other.sourceEnd == _this.sourceEnd)&&(identical(other.volume, _this.volume) || other.volume == _this.volume)&&(identical(other.fadeIn, _this.fadeIn) || other.fadeIn == _this.fadeIn)&&(identical(other.fadeOut, _this.fadeOut) || other.fadeOut == _this.fadeOut));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AudioItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.mediaId, _this.mediaId) || other.mediaId == _this.mediaId)&&(identical(other.role, _this.role) || other.role == _this.role)&&(identical(other.start, _this.start) || other.start == _this.start)&&(identical(other.sourceStart, _this.sourceStart) || other.sourceStart == _this.sourceStart)&&(identical(other.sourceEnd, _this.sourceEnd) || other.sourceEnd == _this.sourceEnd)&&(identical(other.volume, _this.volume) || other.volume == _this.volume)&&(identical(other.fadeIn, _this.fadeIn) || other.fadeIn == _this.fadeIn)&&(identical(other.fadeOut, _this.fadeOut) || other.fadeOut == _this.fadeOut)&&(identical(other.effect, _this.effect) || other.effect == _this.effect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as AudioItem;
-  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.role,_this.start,_this.sourceStart,_this.sourceEnd,_this.volume,_this.fadeIn,_this.fadeOut);
+  return Object.hash(runtimeType,_this.id,_this.mediaId,_this.role,_this.start,_this.sourceStart,_this.sourceEnd,_this.volume,_this.fadeIn,_this.fadeOut,_this.effect);
 }
 
 @override
 String toString() {
   final _this = this as AudioItem;
-  return 'AudioItem(id: ${_this.id}, mediaId: ${_this.mediaId}, role: ${_this.role}, start: ${_this.start}, sourceStart: ${_this.sourceStart}, sourceEnd: ${_this.sourceEnd}, volume: ${_this.volume}, fadeIn: ${_this.fadeIn}, fadeOut: ${_this.fadeOut})';
+  return 'AudioItem(id: ${_this.id}, mediaId: ${_this.mediaId}, role: ${_this.role}, start: ${_this.start}, sourceStart: ${_this.sourceStart}, sourceEnd: ${_this.sourceEnd}, volume: ${_this.volume}, fadeIn: ${_this.fadeIn}, fadeOut: ${_this.fadeOut}, effect: ${_this.effect})';
 }
 
 
@@ -334,11 +334,11 @@ abstract mixin class $AudioItemCopyWith<$Res>  {
   factory $AudioItemCopyWith(AudioItem value, $Res Function(AudioItem) _then) = _$AudioItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String mediaId, AudioRole role,@DurationConverter() Duration start,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume,@DurationConverter() Duration fadeIn,@DurationConverter() Duration fadeOut
+ String id, String mediaId, AudioRole role,@DurationConverter() Duration start,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume,@DurationConverter() Duration fadeIn,@DurationConverter() Duration fadeOut, VoiceEffect effect
 });
 
 
-
+$VoiceEffectCopyWith<$Res> get effect;
 
 }
 /// @nodoc
@@ -351,7 +351,7 @@ class _$AudioItemCopyWithImpl<$Res>
 
 /// Create a copy of AudioItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? role = null,Object? start = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? fadeIn = null,Object? fadeOut = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mediaId = null,Object? role = null,Object? start = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? fadeIn = null,Object? fadeOut = null,Object? effect = null,}) {
   return _then(AudioItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
@@ -362,10 +362,20 @@ as Duration,sourceEnd: null == sourceEnd ? _self.sourceEnd : sourceEnd // ignore
 as Duration,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
 as double,fadeIn: null == fadeIn ? _self.fadeIn : fadeIn // ignore: cast_nullable_to_non_nullable
 as Duration,fadeOut: null == fadeOut ? _self.fadeOut : fadeOut // ignore: cast_nullable_to_non_nullable
-as Duration,
+as Duration,effect: null == effect ? _self.effect : effect // ignore: cast_nullable_to_non_nullable
+as VoiceEffect,
   ));
 }
-
+/// Create a copy of AudioItem
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VoiceEffectCopyWith<$Res> get effect {
+  
+  return $VoiceEffectCopyWith<$Res>(_self.effect, (value) {
+    return _then(_self.copyWith(effect: value));
+  });
+}
 }
 
 
@@ -447,10 +457,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut,  VoiceEffect effect)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AudioItem() when $default != null:
-return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut);case _:
+return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut,_that.effect);case _:
   return orElse();
 
 }
@@ -468,10 +478,10 @@ return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut,  VoiceEffect effect)  $default,) {final _that = this;
 switch (_that) {
 case _AudioItem():
-return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut);case _:
+return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut,_that.effect);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -488,10 +498,10 @@ return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mediaId,  AudioRole role, @DurationConverter()  Duration start, @DurationConverter()  Duration sourceStart, @DurationConverter()  Duration sourceEnd,  double volume, @DurationConverter()  Duration fadeIn, @DurationConverter()  Duration fadeOut,  VoiceEffect effect)?  $default,) {final _that = this;
 switch (_that) {
 case _AudioItem() when $default != null:
-return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut);case _:
+return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,_that.sourceEnd,_that.volume,_that.fadeIn,_that.fadeOut,_that.effect);case _:
   return null;
 
 }
@@ -503,7 +513,7 @@ return $default(_that.id,_that.mediaId,_that.role,_that.start,_that.sourceStart,
 @JsonSerializable()
 
 class _AudioItem extends AudioItem {
-  const _AudioItem({required this.id, required this.mediaId, required this.role, @DurationConverter() required this.start, @DurationConverter() required this.sourceStart, @DurationConverter() required this.sourceEnd, this.volume = 1.0, @DurationConverter() this.fadeIn = Duration.zero, @DurationConverter() this.fadeOut = Duration.zero}): super._();
+  const _AudioItem({required this.id, required this.mediaId, required this.role, @DurationConverter() required this.start, @DurationConverter() required this.sourceStart, @DurationConverter() required this.sourceEnd, this.volume = 1.0, @DurationConverter() this.fadeIn = Duration.zero, @DurationConverter() this.fadeOut = Duration.zero, this.effect = const VoiceEffect()}): super._();
   factory _AudioItem.fromJson(Map<String, dynamic> json) => _$AudioItemFromJson(json);
 
 @override final  String id;
@@ -515,6 +525,7 @@ class _AudioItem extends AudioItem {
 @override@JsonKey() final  double volume;
 @override@JsonKey()@DurationConverter() final  Duration fadeIn;
 @override@JsonKey()@DurationConverter() final  Duration fadeOut;
+@override@JsonKey() final  VoiceEffect effect;
 
 /// Create a copy of AudioItem
 /// with the given fields replaced by the non-null parameter values.
@@ -529,18 +540,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AudioItem&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.role, role) || other.role == role)&&(identical(other.start, start) || other.start == start)&&(identical(other.sourceStart, sourceStart) || other.sourceStart == sourceStart)&&(identical(other.sourceEnd, sourceEnd) || other.sourceEnd == sourceEnd)&&(identical(other.volume, volume) || other.volume == volume)&&(identical(other.fadeIn, fadeIn) || other.fadeIn == fadeIn)&&(identical(other.fadeOut, fadeOut) || other.fadeOut == fadeOut));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AudioItem&&(identical(other.id, id) || other.id == id)&&(identical(other.mediaId, mediaId) || other.mediaId == mediaId)&&(identical(other.role, role) || other.role == role)&&(identical(other.start, start) || other.start == start)&&(identical(other.sourceStart, sourceStart) || other.sourceStart == sourceStart)&&(identical(other.sourceEnd, sourceEnd) || other.sourceEnd == sourceEnd)&&(identical(other.volume, volume) || other.volume == volume)&&(identical(other.fadeIn, fadeIn) || other.fadeIn == fadeIn)&&(identical(other.fadeOut, fadeOut) || other.fadeOut == fadeOut)&&(identical(other.effect, effect) || other.effect == effect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,mediaId,role,start,sourceStart,sourceEnd,volume,fadeIn,fadeOut);
+    return Object.hash(runtimeType,id,mediaId,role,start,sourceStart,sourceEnd,volume,fadeIn,fadeOut,effect);
 }
 
 @override
 String toString() {
-    return 'AudioItem(id: $id, mediaId: $mediaId, role: $role, start: $start, sourceStart: $sourceStart, sourceEnd: $sourceEnd, volume: $volume, fadeIn: $fadeIn, fadeOut: $fadeOut)';
+    return 'AudioItem(id: $id, mediaId: $mediaId, role: $role, start: $start, sourceStart: $sourceStart, sourceEnd: $sourceEnd, volume: $volume, fadeIn: $fadeIn, fadeOut: $fadeOut, effect: $effect)';
 }
 
 
@@ -551,11 +562,11 @@ abstract mixin class _$AudioItemCopyWith<$Res> implements $AudioItemCopyWith<$Re
   factory _$AudioItemCopyWith(_AudioItem value, $Res Function(_AudioItem) _then) = __$AudioItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String mediaId, AudioRole role,@DurationConverter() Duration start,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume,@DurationConverter() Duration fadeIn,@DurationConverter() Duration fadeOut
+ String id, String mediaId, AudioRole role,@DurationConverter() Duration start,@DurationConverter() Duration sourceStart,@DurationConverter() Duration sourceEnd, double volume,@DurationConverter() Duration fadeIn,@DurationConverter() Duration fadeOut, VoiceEffect effect
 });
 
 
-
+@override $VoiceEffectCopyWith<$Res> get effect;
 
 }
 /// @nodoc
@@ -568,7 +579,7 @@ class __$AudioItemCopyWithImpl<$Res>
 
 /// Create a copy of AudioItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? role = null,Object? start = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? fadeIn = null,Object? fadeOut = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mediaId = null,Object? role = null,Object? start = null,Object? sourceStart = null,Object? sourceEnd = null,Object? volume = null,Object? fadeIn = null,Object? fadeOut = null,Object? effect = null,}) {
   return _then(_AudioItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mediaId: null == mediaId ? _self.mediaId : mediaId // ignore: cast_nullable_to_non_nullable
@@ -579,11 +590,21 @@ as Duration,sourceEnd: null == sourceEnd ? _self.sourceEnd : sourceEnd // ignore
 as Duration,volume: null == volume ? _self.volume : volume // ignore: cast_nullable_to_non_nullable
 as double,fadeIn: null == fadeIn ? _self.fadeIn : fadeIn // ignore: cast_nullable_to_non_nullable
 as Duration,fadeOut: null == fadeOut ? _self.fadeOut : fadeOut // ignore: cast_nullable_to_non_nullable
-as Duration,
+as Duration,effect: null == effect ? _self.effect : effect // ignore: cast_nullable_to_non_nullable
+as VoiceEffect,
   ));
 }
 
-
+/// Create a copy of AudioItem
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VoiceEffectCopyWith<$Res> get effect {
+  
+  return $VoiceEffectCopyWith<$Res>(_self.effect, (value) {
+    return _then(_self.copyWith(effect: value));
+  });
+}
 }
 
 // dart format on
