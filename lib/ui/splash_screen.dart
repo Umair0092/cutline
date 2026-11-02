@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../startup/startup.dart';
+import 'home/wordmark.dart';
+import 'tokens.dart';
+import 'widgets/cut_widgets.dart';
 
 /// Brand colours for the logo.
 const _logoStart = Color(0xFF6C5CE7);
@@ -60,66 +63,168 @@ void paintCutlineLogo(Canvas canvas, Size size) {
   );
 }
 
-class SplashScreen extends ConsumerWidget {
+/// The first thing you see: the wordmark draws itself in on a dark canvas
+/// (the cut line first, then the letters), with a thin progress line and
+/// what's being got ready underneath.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1150),
+  );
+
+  // The cut line draws first, the letters rise in once it's going, and a
+  // light runs along the line once at the end.
+  late final _line = CurvedAnimation(
+    parent: _intro,
+    curve: const Interval(0, 0.45, curve: CutMotion.decelerate),
+  );
+  late final _letters = CurvedAnimation(
+    parent: _intro,
+    curve: const Interval(0.18, 0.78, curve: CutMotion.decelerate),
+  );
+  late final _shimmer = CurvedAnimation(
+    parent: _intro,
+    curve: const Interval(0.62, 1, curve: Curves.easeInOut),
+  );
+  late final _status = CurvedAnimation(
+    parent: _intro,
+    curve: const Interval(0.7, 1, curve: Curves.easeOut),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _intro.forward();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final startup = ref.watch(startupProvider);
-    final theme = Theme.of(context);
+    final short = MediaQuery.sizeOf(context).shortestSide;
+    final markSize = (short * 0.15).clamp(52.0, 84.0);
+    final still = reduceEffects(context);
     return Scaffold(
       key: const Key('splash'),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CutlineLogo(),
-            const SizedBox(height: 20),
-            Text(
-              'Cutline',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontFamily: 'Inter',
-                fontVariations: const [FontVariation('wght', 700)],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Edit videos by saying what you want',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 36),
-            SizedBox(
-              width: 240,
-              child: TweenAnimationBuilder<double>(
-                // Glide between steps instead of jumping.
-                tween: Tween(end: startup.progress),
-                duration: const Duration(milliseconds: 300),
-                builder: (context, value, _) => LinearProgressIndicator(
-                  key: const Key('splash-progress'),
-                  value: value,
-                  borderRadius: BorderRadius.circular(4),
+      backgroundColor: Cut.canvas,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // One big, soft pool of violet light, a little above the middle.
+          Align(
+            alignment: const Alignment(0, -0.18),
+            child: AuroraGlow(size: short * 1.2, color: Cut.accent),
+          ),
+          SafeArea(
+            child: Stack(
+              children: [
+                Center(
+                  child: AnimatedBuilder(
+                    animation: _intro,
+                    builder: (context, _) => CutlineWordmark(
+                      key: const Key('splash-wordmark'),
+                      size: markSize,
+                      line: still ? 1 : _line.value,
+                      letters: still ? 1 : _letters.value,
+                      shimmer: still ? null : _shimmer.value,
+                      background: Cut.canvas,
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: CutSpace.s9,
+                  child: FadeTransition(
+                    opacity: still ? const AlwaysStoppedAnimation(1) : _status,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 160,
+                          child: TweenAnimationBuilder<double>(
+                            // Glide between steps instead of jumping.
+                            tween: Tween(end: startup.progress),
+                            duration: CutMotion.enter,
+                            curve: CutMotion.standard,
+                            builder: (context, value, _) =>
+                                _AuroraProgress(value: value),
+                          ),
+                        ),
+                        const SizedBox(height: CutSpace.s3),
+                        Text(
+                          startup.message,
+                          key: const Key('splash-message'),
+                          style: CutType.caption.copyWith(
+                            color: Cut.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              startup.message,
-              key: const Key('splash-message'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Shows the splash until startup is done, then fades into [child] and
-/// mentions any startup warnings once.
+/// A 2 px track with an aurora fill: the splash's progress line.
+class _AuroraProgress extends StatelessWidget {
+  const _AuroraProgress({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Getting ready',
+    value: '${(value * 100).round()}%',
+    child: Container(
+      key: const Key('splash-progress'),
+      height: 2,
+      decoration: BoxDecoration(
+        color: Cut.strokeSubtle,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: value.clamp(0.02, 1.0),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            gradient: const LinearGradient(
+              colors: Cut.aurora,
+              stops: Cut.auroraStops,
+            ),
+            boxShadow: const [
+              BoxShadow(color: Color(0x66B14DFF), blurRadius: 8),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Shows the splash until startup is done, then hands over to [child]: the
+/// wordmark shrinks back and fades while the app fades in towards you.
+/// Mentions any startup warnings once.
 class StartupGate extends ConsumerStatefulWidget {
   const StartupGate({super.key, required this.child});
 
@@ -130,6 +235,8 @@ class StartupGate extends ConsumerStatefulWidget {
 }
 
 class _StartupGateState extends ConsumerState<StartupGate> {
+  static const _splashKey = ValueKey('splash-gate');
+
   @override
   Widget build(BuildContext context) {
     ref.listen(startupProvider, (before, now) {
@@ -143,8 +250,25 @@ class _StartupGateState extends ConsumerState<StartupGate> {
     });
     final done = ref.watch(startupProvider.select((s) => s.done));
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      child: done ? widget.child : const SplashScreen(),
+      duration: CutMotion.enter,
+      switchInCurve: CutMotion.decelerate,
+      switchOutCurve: CutMotion.accelerate,
+      transitionBuilder: (child, animation) {
+        final splash = child.key == _splashKey;
+        // The splash leaves by shrinking a little; the app arrives from
+        // slightly larger, so it feels like moving forward (shared axis Z).
+        final scale = Tween<double>(
+          begin: splash ? 0.92 : 1.04,
+          end: 1,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(scale: scale, child: child),
+        );
+      },
+      child: done
+          ? KeyedSubtree(key: const ValueKey('app'), child: widget.child)
+          : const SplashScreen(key: _splashKey),
     );
   }
 }
