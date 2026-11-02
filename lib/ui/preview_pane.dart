@@ -13,6 +13,7 @@ import '../overlays/overlay_media.dart';
 import '../preview/preview_controller.dart';
 import '../titles/title_actions.dart';
 import '../titles/title_preview.dart';
+import 'app_menu.dart';
 import 'import_actions.dart';
 import 'time_format.dart';
 
@@ -83,6 +84,7 @@ class _EmptyState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+    final compact = isCompact(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -90,12 +92,14 @@ class _EmptyState extends ConsumerWidget {
           Icon(Icons.movie_outlined, size: 48, color: colors.onSurfaceVariant),
           const SizedBox(height: 12),
           Text(
-            'Drop a video here',
+            compact ? 'Pick a video to edit' : 'Drop a video here',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
-            'MP4, MOV or M4V. Then drop pictures and GIFs on top.',
+            compact
+                ? 'MP4, MOV or M4V'
+                : 'MP4, MOV or M4V. Then drop pictures and GIFs on top.',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 16),

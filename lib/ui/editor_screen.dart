@@ -5,6 +5,8 @@ import '../editing/project_editor.dart';
 import '../timeline/timeline_panel.dart';
 import 'sidebar.dart';
 import 'transcript_panel.dart';
+import 'app_menu.dart';
+import 'compact_editor.dart';
 import 'editor_shortcuts.dart';
 import 'preview_pane.dart';
 
@@ -19,6 +21,7 @@ class EditorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    if (isCompact(context)) return const CompactEditor();
     return Scaffold(
       body: AutoTranscribe(
         child: EditorShortcuts(

@@ -90,6 +90,7 @@ class AppMenu extends ConsumerWidget {
       ],
     };
 
+    final scoped = AppMenuScope(menus: menus, child: child);
     if (defaultTargetPlatform == TargetPlatform.macOS) {
       return PlatformMenuBar(
         menus: [
@@ -131,7 +132,7 @@ class AppMenu extends ConsumerWidget {
               ],
             ),
         ],
-        child: child,
+        child: scoped,
       );
     }
 
@@ -141,29 +142,51 @@ class AppMenu extends ConsumerWidget {
           if (c.shortcut != null && c.onSelected != null)
             c.shortcut!: c.onSelected!,
       },
-      child: Column(
-        children: [
-          MenuBar(
-            children: [
-              for (final MapEntry(key: title, value: commands) in menus.entries)
-                SubmenuButton(
-                  menuChildren: [
-                    for (final c in commands)
-                      MenuItemButton(
-                        shortcut: c.shortcut,
-                        onPressed: c.onSelected,
-                        child: Text(c.label),
+      // On a phone-sized screen the editor shows these in its own top bar.
+      child: isCompact(context)
+          ? scoped
+          : Column(
+              children: [
+                MenuBar(
+                  children: [
+                    for (final MapEntry(key: title, value: commands)
+                        in menus.entries)
+                      SubmenuButton(
+                        menuChildren: [
+                          for (final c in commands)
+                            MenuItemButton(
+                              shortcut: c.shortcut,
+                              onPressed: c.onSelected,
+                              child: Text(c.label),
+                            ),
+                        ],
+                        child: Text(title),
                       ),
                   ],
-                  child: Text(title),
                 ),
-            ],
-          ),
-          Expanded(child: child),
-        ],
-      ),
+                Expanded(child: scoped),
+              ],
+            ),
     );
   }
+}
+
+/// Phone-sized screens get the compact editor layout.
+bool isCompact(BuildContext context) => MediaQuery.sizeOf(context).width < 720;
+
+/// Makes the menu commands available below [AppMenu], for the compact
+/// layout's own menu button.
+class AppMenuScope extends InheritedWidget {
+  const AppMenuScope({super.key, required this.menus, required super.child});
+
+  final Map<String, List<MenuCommand>> menus;
+
+  static Map<String, List<MenuCommand>> of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppMenuScope>()?.menus ??
+      const {};
+
+  @override
+  bool updateShouldNotify(AppMenuScope old) => old.menus != menus;
 }
 
 /// The native macOS menu catches Cmd+Z before a text field sees it, so while

@@ -209,83 +209,90 @@ class _Toolbar extends ConsumerWidget {
       projectEditorProvider.select((s) => s.project.clips.isNotEmpty),
     );
     final zoom = ref.read(timelineUiProvider.notifier);
+    // On a narrow screen the buttons scroll sideways instead of being cut
+    // off.
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+    final row = Row(
+      mainAxisSize: narrow ? MainAxisSize.min : MainAxisSize.max,
+      children: [
+        const SizedBox(width: 8),
+        IconButton(
+          key: const Key('split'),
+          tooltip: 'Split at playhead (S)',
+          icon: const Icon(Icons.content_cut, size: 18),
+          onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
+        ),
+        IconButton(
+          key: const Key('delete'),
+          tooltip: 'Delete (Delete)',
+          icon: const Icon(Icons.delete_outline, size: 18),
+          onPressed:
+              ui.selectedClipId != null ||
+                  ui.selectedTitleId != null ||
+                  ui.selectedOverlayId != null ||
+                  ui.selectedAudioId != null
+              ? () => deleteSelectedClip(ref, context)
+              : null,
+        ),
+        IconButton(
+          key: const Key('add-title'),
+          tooltip: 'Add title or intro',
+          icon: const Icon(Icons.title, size: 18),
+          onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
+        ),
+        IconButton(
+          key: const Key('add-overlay'),
+          tooltip: 'Add a picture, GIF or video on top',
+          icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+          onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
+        ),
+        IconButton(
+          key: const Key('record-voiceover'),
+          tooltip: 'Record a voiceover',
+          icon: const Icon(Icons.mic_none, size: 18),
+          onPressed: hasClips
+              ? () {
+                  final rec = ref.read(recordingProvider.notifier);
+                  ref.read(recordingProvider).open ? rec.hide() : rec.show();
+                }
+              : null,
+        ),
+        IconButton(
+          key: const Key('ai-voiceover'),
+          tooltip: 'AI voiceover from a script',
+          icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+          onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
+        ),
+        if (hasClips) const AudioMixButton(),
+        if (narrow) const SizedBox(width: 16) else const Spacer(),
+        IconButton(
+          tooltip: 'Zoom out (-)',
+          icon: const Icon(Icons.zoom_out, size: 18),
+          onPressed: () => zoom.zoomBy(1 / 1.5),
+        ),
+        SizedBox(
+          width: 120,
+          child: Slider(
+            // Log scale so the slider feels even from minutes to frames.
+            value: math.log(ui.pixelsPerSecond),
+            min: math.log(0.5),
+            max: math.log(600),
+            onChanged: (v) => zoom.setZoom(math.exp(v)),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Zoom in (=)',
+          icon: const Icon(Icons.zoom_in, size: 18),
+          onPressed: () => zoom.zoomBy(1.5),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
     return SizedBox(
       height: 36,
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          IconButton(
-            key: const Key('split'),
-            tooltip: 'Split at playhead (S)',
-            icon: const Icon(Icons.content_cut, size: 18),
-            onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
-          ),
-          IconButton(
-            key: const Key('delete'),
-            tooltip: 'Delete (Delete)',
-            icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed:
-                ui.selectedClipId != null ||
-                    ui.selectedTitleId != null ||
-                    ui.selectedOverlayId != null ||
-                    ui.selectedAudioId != null
-                ? () => deleteSelectedClip(ref, context)
-                : null,
-          ),
-          IconButton(
-            key: const Key('add-title'),
-            tooltip: 'Add title or intro',
-            icon: const Icon(Icons.title, size: 18),
-            onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
-          ),
-          IconButton(
-            key: const Key('add-overlay'),
-            tooltip: 'Add a picture, GIF or video on top',
-            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-            onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
-          ),
-          IconButton(
-            key: const Key('record-voiceover'),
-            tooltip: 'Record a voiceover',
-            icon: const Icon(Icons.mic_none, size: 18),
-            onPressed: hasClips
-                ? () {
-                    final rec = ref.read(recordingProvider.notifier);
-                    ref.read(recordingProvider).open ? rec.hide() : rec.show();
-                  }
-                : null,
-          ),
-          IconButton(
-            key: const Key('ai-voiceover'),
-            tooltip: 'AI voiceover from a script',
-            icon: const Icon(Icons.record_voice_over_outlined, size: 18),
-            onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
-          ),
-          if (hasClips) const AudioMixButton(),
-          const Spacer(),
-          IconButton(
-            tooltip: 'Zoom out (-)',
-            icon: const Icon(Icons.zoom_out, size: 18),
-            onPressed: () => zoom.zoomBy(1 / 1.5),
-          ),
-          SizedBox(
-            width: 120,
-            child: Slider(
-              // Log scale so the slider feels even from minutes to frames.
-              value: math.log(ui.pixelsPerSecond),
-              min: math.log(0.5),
-              max: math.log(600),
-              onChanged: (v) => zoom.setZoom(math.exp(v)),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Zoom in (=)',
-            icon: const Icon(Icons.zoom_in, size: 18),
-            onPressed: () => zoom.zoomBy(1.5),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      child: narrow
+          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: row)
+          : row,
     );
   }
 }

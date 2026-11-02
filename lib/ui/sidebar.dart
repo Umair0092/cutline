@@ -7,13 +7,16 @@ import 'transcript_panel.dart';
 /// The right-hand sidebar: the assistant, the transcript and memes, as
 /// tabs.
 class Sidebar extends StatelessWidget {
-  const Sidebar({super.key});
+  const Sidebar({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return DefaultTabController(
       length: 3,
+      initialIndex: initialTab,
       child: ColoredBox(
         color: colors.surfaceContainerLow,
         child: Column(
