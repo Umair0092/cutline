@@ -934,7 +934,7 @@ class SegmentedPill<T> extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: Container(
           width: w,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: w == null ? 12 : 6),
           alignment: Alignment.center,
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -948,13 +948,19 @@ class SegmentedPill<T> extends StatelessWidget {
                 if (label.isNotEmpty) const SizedBox(width: 6),
               ],
               if (label.isNotEmpty)
-                AnimatedDefaultTextStyle(
-                  duration: CutMotion.fast,
-                  style: CutType.label.copyWith(
-                    color: on ? Cut.textPrimary : Cut.textTertiary,
-                    fontWeight: on ? FontWeight.w600 : FontWeight.w500,
+                Flexible(
+                  child: AnimatedDefaultTextStyle(
+                    duration: CutMotion.fast,
+                    style: CutType.label.copyWith(
+                      color: on ? Cut.textPrimary : Cut.textTertiary,
+                      fontWeight: on ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  child: Text(label),
                 ),
             ],
           ),
