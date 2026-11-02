@@ -48,6 +48,7 @@ dependencies:
   package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.6
+  phosphor_flutter: ^2.1.0
   record: ^7.1.2
   url_launcher: ^6.3.3
   uuid: ^4.6.0
@@ -81,9 +82,11 @@ flutter:
     - assets/fonts/BebasNeue-OFL.txt
     - assets/fonts/Inter-OFL.txt
     - assets/fonts/PlayfairDisplay-OFL.txt
+    - assets/fonts/BricolageGrotesque-OFL.txt
+    - assets/fonts/JetBrainsMono-OFL.txt
 
   # Bundled so titles look the same in the preview, the export and on every
-  # computer. All three are SIL Open Font License (see assets/fonts/*-OFL.txt).
+  # computer. All are SIL Open Font License (see assets/fonts/*-OFL.txt).
   fonts:
     - family: Inter
       fonts:
@@ -94,3 +97,9 @@ flutter:
     - family: Playfair Display
       fonts:
         - asset: assets/fonts/PlayfairDisplay.ttf
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf

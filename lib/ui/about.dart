@@ -21,7 +21,13 @@ void registerBundledLicenses() {
     yield LicenseEntryWithLineBreaks([
       'whisper.cpp',
     ], await text('assets/licenses/whisper.cpp-MIT.txt'));
-    for (final font in ['Inter', 'BebasNeue', 'PlayfairDisplay']) {
+    for (final font in [
+      'Inter',
+      'BebasNeue',
+      'PlayfairDisplay',
+      'BricolageGrotesque',
+      'JetBrainsMono',
+    ]) {
       yield LicenseEntryWithLineBreaks([
         '$font font',
       ], await text('assets/fonts/$font-OFL.txt'));
