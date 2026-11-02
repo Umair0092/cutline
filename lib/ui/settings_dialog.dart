@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
 import '../ai/assistant_client.dart';
+import '../ai/builtin_keys.dart';
 import '../memes/meme_search.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
@@ -98,7 +99,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final saved = ref.watch(apiKeyProvider).value;
+    final builtIn = saved != null && saved == builtinGroqKey;
     final giphy = ref.watch(giphyKeyProvider).value;
+    final giphyBuiltIn = giphy != null && giphy == builtinGiphyKey;
     final provider =
         ref.watch(preferencesProvider).value?.provider ?? AiProvider.groq;
     final theme = Theme.of(context);
@@ -140,6 +143,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               saved == null
                   ? 'Get a key at ${provider.consoleUrl}. '
                         'It\'s stored in your system keychain.'
+                  : builtIn
+                  ? 'Using the key that came with this copy of Cutline. '
+                        'Paste another to use yours instead.'
                   : 'A key ending in …${saved.substring(saved.length - 4)} '
                         'is saved in your system keychain.',
               style: theme.textTheme.bodySmall,
@@ -210,6 +216,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               giphy == null
                   ? 'Optional: a free GIPHY key lets you search GIFs and '
                         'stickers. Get one at developers.giphy.com.'
+                  : giphyBuiltIn
+                  ? 'Using the GIPHY key that came with this copy.'
                   : 'A GIPHY key ending in '
                         '…${giphy.substring(giphy.length < 4 ? 0 : giphy.length - 4)} '
                         'is saved in your system keychain.',
@@ -232,7 +240,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ),
                   ),
                 ),
-                if (giphy != null)
+                if (giphy != null && !giphyBuiltIn)
                   IconButton(
                     tooltip: 'Remove the GIPHY key',
                     icon: const Icon(Icons.delete_outline),
@@ -245,7 +253,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         ),
       ),
       actions: [
-        if (saved != null)
+        if (saved != null && !builtIn)
           TextButton(
             onPressed: () async {
               await ref.read(apiKeyProvider.notifier).remove();

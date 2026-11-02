@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../ai/api_key_store.dart';
 import '../ai/assistant_client.dart';
+import '../ai/builtin_keys.dart';
 import '../media/ffmpeg.dart';
 import '../model/speech_spec.dart';
 
@@ -291,8 +292,9 @@ final speakerFactoryProvider =
         final ffmpeg = const FfmpegLocator().find();
         if (ffmpeg == null) throw SpeechException('FFmpeg is missing.');
         if (engine == VoiceEngine.system) return SystemSpeaker(ffmpeg);
-        final key = await ref.read(apiKeyStoreProvider).read(AiProvider.groq);
-        if (key == null || key.isEmpty) {
+        var key = await ref.read(apiKeyStoreProvider).read(AiProvider.groq);
+        if (key == null || key.isEmpty) key = builtinGroqKey;
+        if (key.isEmpty) {
           throw SpeechException(
             'Groq voices use your Groq key. Add one in Settings (choose '
             'Groq), or use a system voice.',

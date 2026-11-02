@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../ai/builtin_keys.dart';
 import '../overlays/overlay_media.dart';
 import '../storage/project_store.dart';
 import '../transcript/transcription_service.dart';
@@ -250,10 +251,11 @@ class GiphyKeyNotifier extends AsyncNotifier<String?> {
   Future<String?> build() async {
     try {
       final key = await ref.read(giphyKeyStoreProvider).read();
-      return key == null || key.isEmpty ? null : key;
+      if (key != null && key.isNotEmpty) return key;
     } on Object {
-      return null;
+      // Fall through to the built-in key.
     }
+    return builtinGiphyKey.isEmpty ? null : builtinGiphyKey;
   }
 
   Future<void> save(String key) async {
@@ -263,7 +265,7 @@ class GiphyKeyNotifier extends AsyncNotifier<String?> {
 
   Future<void> remove() async {
     await ref.read(giphyKeyStoreProvider).delete();
-    state = const AsyncData(null);
+    state = AsyncData(builtinGiphyKey.isEmpty ? null : builtinGiphyKey);
   }
 }
 

@@ -48,3 +48,6 @@ app.*.map.json
 .widget_preview/
 /screenshots/
 /test_media/
+
+# Keys built into personal builds (tool/build_with_keys.sh). Never commit.
+keys.env

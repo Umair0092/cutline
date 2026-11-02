@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../settings/preferences.dart';
 import 'assistant_client.dart';
+import 'builtin_keys.dart';
 
 /// Keeps the Claude API key in the system keychain (macOS/iOS Keychain,
 /// Windows Credential Manager), never in project files or preferences.
@@ -48,9 +49,23 @@ class ApiKeyNotifier extends AsyncNotifier<String?> {
   @override
   Future<String?> build() async {
     final provider = await ref.watch(aiProviderProvider.future);
-    final key = await ref.read(apiKeyStoreProvider).read(provider);
-    return (key == null || key.isEmpty) ? null : key;
+    String? key;
+    try {
+      key = await ref.read(apiKeyStoreProvider).read(provider);
+    } on Object {
+      key = null;
+    }
+    if (key != null && key.isNotEmpty) return key;
+    // No saved key: use the one built into this copy, if any.
+    if (provider == AiProvider.groq && builtinGroqKey.isNotEmpty) {
+      return builtinGroqKey;
+    }
+    return null;
   }
+
+  /// True when the key in use came with the app, not from Settings.
+  bool get usingBuiltIn =>
+      builtinGroqKey.isNotEmpty && state.value == builtinGroqKey;
 
   Future<void> save(String key) async {
     final provider = await ref.read(aiProviderProvider.future);
@@ -61,6 +76,10 @@ class ApiKeyNotifier extends AsyncNotifier<String?> {
   Future<void> remove() async {
     final provider = await ref.read(aiProviderProvider.future);
     await ref.read(apiKeyStoreProvider).delete(provider);
-    state = const AsyncData(null);
+    state = AsyncData(
+      provider == AiProvider.groq && builtinGroqKey.isNotEmpty
+          ? builtinGroqKey
+          : null,
+    );
   }
 }
