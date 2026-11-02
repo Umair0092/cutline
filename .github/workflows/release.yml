@@ -38,7 +38,10 @@ jobs:
             third_party/ffmpeg
             third_party/whisper
           key: release-tools-macos-universal-${{ hashFiles('tool/build_*_macos.sh') }}
-      # Universal, so the app runs natively on Intel and Apple silicon.
+      # Universal, so the app runs natively on Intel and Apple silicon. The
+      # Intel half needs nasm for FFmpeg's assembly.
+      - name: Install nasm
+        run: brew install nasm
       - name: Build LGPL FFmpeg
         run: '[ -x third_party/ffmpeg/macos/ffmpeg ] || ARCHS="arm64 x86_64" tool/build_ffmpeg_macos.sh'
       - name: Build whisper.cpp
