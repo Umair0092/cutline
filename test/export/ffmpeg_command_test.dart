@@ -1,6 +1,8 @@
 import 'package:cutline/export/export_settings.dart';
 import 'package:cutline/export/ffmpeg_command.dart';
+import 'package:cutline/model/audio_item.dart';
 import 'package:cutline/model/media_asset.dart';
+import 'package:cutline/model/overlay_item.dart';
 import 'package:cutline/model/project.dart';
 import 'package:cutline/model/video_clip.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,55 +78,109 @@ void main() {
         contains('[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vmain][amain]'),
       );
       expect(graph, contains('[vmain]null[vout]'));
-      expect(graph, endsWith('[amain]anull[aout]'));
+      expect(graph, contains('[amain]volume=1.000[aorig]'));
+      expect(graph, endsWith('[aorig]anull[aout]'));
     });
 
-    test('overlay sounds are delayed to their start and mixed in', () {
+    test('voiceovers duck the original; other sounds just mix in', () {
+      var project = threeClips().copyWith(
+        media: [
+          ...threeClips().media,
+          const MediaAsset(
+            id: 'vo',
+            path: 'assets/vo.m4a',
+            kind: MediaKind.audio,
+            duration: Duration(seconds: 30),
+            hasAudio: true,
+          ),
+          const MediaAsset(
+            id: 'beep',
+            path: '/memes/bruh.mp4',
+            kind: MediaKind.video,
+            duration: Duration(seconds: 2),
+            width: 160,
+            height: 90,
+            hasAudio: true,
+          ),
+        ],
+        audio: [
+          AudioItem(
+            id: 'a1',
+            mediaId: 'vo',
+            role: AudioRole.voiceover,
+            start: s(4),
+            sourceStart: s(1),
+            sourceEnd: s(11),
+            fadeIn: s(0.5),
+            fadeOut: s(1),
+          ),
+        ],
+        overlays: [
+          OverlayItem(
+            id: 'o1',
+            mediaId: 'beep',
+            start: s(20),
+            duration: s(3),
+            volume: 0.5,
+          ),
+        ],
+        mix: const AudioMix(original: 0.8, voiceover: 1.5),
+      );
       final a = buildExportArgs(
-        project: threeClips(),
-        projectPath: null,
+        project: project,
+        projectPath: '/p/Talk.cutline',
         format: format,
         encoder: VideoEncoder.videotoolbox,
         outputPath: '/out.mp4',
-        titleOverlays: [(path: '/tmp/o1.mov', start: s(4))],
-        sounds: [
-          (path: '/memes/bruh.mp4', start: s(4), length: s(2), volume: 0.5),
-        ],
       );
+      // The voiceover is cut from its file; the meme sound plays once.
       expect(
         a,
-        containsAllInOrder(['-i', '/tmp/o1.mov', '-i', '/memes/bruh.mp4']),
+        containsAllInOrder([
+          '-ss',
+          '1.000000',
+          '-t',
+          '10.000000',
+          '-i',
+          '/p/Talk.cutline/assets/vo.m4a',
+          '-t',
+          '2.000000',
+          '-i',
+          '/memes/bruh.mp4',
+        ]),
       );
       final graph = a[a.indexOf('-filter_complex') + 1];
-      expect(graph, contains('[4:a:0]aresample=48000'));
-      expect(graph, contains('atrim=duration=2.000000'));
-      expect(graph, contains('volume=0.500,adelay=delays=4000:all=1[s0]'));
+      expect(graph, contains('[3:a:0]aresample=48000'));
+      expect(
+        graph,
+        contains(
+          'volume=1.500,afade=t=in:st=0:d=0.500,afade=t=out:st=9.000:d=1.000,'
+          'adelay=delays=4000:all=1[x0]',
+        ),
+      );
+      expect(graph, contains('volume=0.500,adelay=delays=20000:all=1[x1]'));
+      expect(graph, contains('[amain]volume=0.800[aorig]'));
+      expect(graph, contains('[aorig][vkey]sidechaincompress'));
       expect(
         graph,
         endsWith(
-          '[amain][s0]amix=inputs=2:normalize=0:duration=first:'
+          '[aduck][vmix][other]amix=inputs=3:normalize=0:duration=first:'
           'dropout_transition=0[aout]',
         ),
       );
-    });
 
-    test('titles are extra inputs laid over the video at their start', () {
-      final a = buildExportArgs(
-        project: threeClips(),
-        projectPath: null,
+      // Ducking off, original muted: no compressor.
+      project = project.copyWith(mix: const AudioMix(original: 0, duck: true));
+      final b = buildExportArgs(
+        project: project,
+        projectPath: '/p/Talk.cutline',
         format: format,
         encoder: VideoEncoder.videotoolbox,
         outputPath: '/out.mp4',
-        titleOverlays: [(path: '/tmp/t1.mov', start: s(2.5))],
       );
-      expect(a, containsAllInOrder(['-i', '/tmp/t1.mov']));
-      final graph = a[a.indexOf('-filter_complex') + 1];
-      expect(graph, contains('[3:v:0]setpts=PTS-STARTPTS+2.500000/TB[title0]'));
-      expect(
-        graph,
-        contains('[vmain][title0]overlay=0:0:eof_action=pass[vt0]'),
-      );
-      expect(graph, contains('[vt0]null[vout]'));
+      final graph2 = b[b.indexOf('-filter_complex') + 1];
+      expect(graph2, isNot(contains('sidechaincompress')));
+      expect(graph2, contains('[aorig][voice][other]amix=inputs=3'));
     });
 
     test('silent clips get generated silence', () {

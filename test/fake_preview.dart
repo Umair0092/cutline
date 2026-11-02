@@ -25,6 +25,21 @@ class FakePreviewController implements PreviewController {
     _playing.add(isPlaying);
   }
 
+  double volume = 1;
+
+  @override
+  Future<void> play() async {
+    if (!isPlaying) await togglePlay();
+  }
+
+  @override
+  Future<void> pause() async {
+    if (isPlaying) await togglePlay();
+  }
+
+  @override
+  Future<void> setVolume(double v) async => volume = v;
+
   @override
   Future<void> seek(Duration to) async {
     position = to;

@@ -1,3 +1,4 @@
+import '../audio/audio_mix.dart';
 import '../model/project.dart';
 import '../storage/project_store.dart';
 import 'export_settings.dart';
@@ -25,14 +26,6 @@ enum VideoEncoder {
   };
 }
 
-/// A sound from an overlay, mixed in at [start] for [length].
-typedef OverlaySound = ({
-  String path,
-  Duration start,
-  Duration length,
-  double volume,
-});
-
 String _sec(Duration d) =>
     (d.inMicroseconds / Duration.microsecondsPerSecond).toStringAsFixed(6);
 
@@ -50,7 +43,6 @@ List<String> buildExportArgs({
   required VideoEncoder encoder,
   required String outputPath,
   List<({String path, Duration start})> titleOverlays = const [],
-  List<OverlaySound> sounds = const [],
 }) {
   if (project.clips.isEmpty) {
     throw ArgumentError('Nothing to export.');
@@ -109,30 +101,18 @@ List<String> buildExportArgs({
   }
   filters.add('[$video]null[vout]');
 
-  // Overlay sounds start at their time and are mixed over the main audio
-  // at their own volume (normalize=0 keeps the main audio as loud as it
-  // was).
-  final soundInputs = project.clips.length + titleOverlays.length;
-  final mix = StringBuffer('[amain]');
-  for (var k = 0; k < sounds.length; k++) {
-    final s = sounds[k];
-    inputs.addAll(['-i', s.path]);
-    final delay = s.start.inMilliseconds;
-    filters.add(
-      '[${soundInputs + k}:a:0]aresample=48000,'
-      'aformat=sample_fmts=fltp:channel_layouts=stereo,'
-      'atrim=duration=${_sec(s.length)},asetpts=PTS-STARTPTS,'
-      'volume=${s.volume.toStringAsFixed(3)},'
-      'adelay=delays=$delay:all=1[s$k]',
-    );
-    mix.write('[s$k]');
-  }
-  filters.add(
-    sounds.isEmpty
-        ? '[amain]anull[aout]'
-        : '${mix}amix=inputs=${sounds.length + 1}:normalize=0:'
-              'duration=first:dropout_transition=0[aout]',
+  // Voiceovers, music and overlay sounds start at their time and are mixed
+  // over the main audio (see audio_mix.dart).
+  final extras = extraAudioGraph(
+    extraAudioOf(project, projectPath),
+    project.clips.length + titleOverlays.length,
   );
+  inputs.addAll(extras.inputs);
+  filters
+    ..addAll(extras.filters)
+    ..addAll(
+      finalMixFilters(project.mix, (voice: extras.voice, other: extras.other)),
+    );
 
   return [
     '-hide_banner',

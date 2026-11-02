@@ -25,6 +25,7 @@ abstract class Project with _$Project {
     @Default(<OverlayItem>[]) List<OverlayItem> overlays,
     @Default(<AudioItem>[]) List<AudioItem> audio,
     @Default(<TitleItem>[]) List<TitleItem> titles,
+    @Default(AudioMix()) AudioMix mix,
   }) = _Project;
 
   factory Project.fromJson(Map<String, dynamic> json) =>

@@ -379,6 +379,75 @@ class AddAudio extends EditCommand {
   }
 }
 
+class UpdateAudio extends EditCommand {
+  const UpdateAudio(
+    this.itemId, {
+    this.start,
+    this.sourceEnd,
+    this.volume,
+    this.fadeIn,
+    this.fadeOut,
+  });
+  final String itemId;
+  final Duration? start;
+  final Duration? sourceEnd;
+  final double? volume;
+  final Duration? fadeIn;
+  final Duration? fadeOut;
+
+  @override
+  String get label => 'Change audio';
+
+  @override
+  Project apply(Project project) {
+    final a = project.audio.where((a) => a.id == itemId).firstOrNull;
+    if (a == null) throw EditException('There is no audio item $itemId.');
+    final media = project.mediaById(a.mediaId);
+    final updated = a.copyWith(
+      start: start ?? a.start,
+      sourceEnd: sourceEnd ?? a.sourceEnd,
+      volume: volume ?? a.volume,
+      fadeIn: fadeIn ?? a.fadeIn,
+      fadeOut: fadeOut ?? a.fadeOut,
+    );
+    if (updated.start < Duration.zero ||
+        updated.duration < minClipDuration ||
+        (media != null &&
+            media.duration > Duration.zero &&
+            updated.sourceEnd > media.duration)) {
+      throw EditException('The audio timing is invalid.');
+    }
+    if (updated.volume < 0 || updated.volume > 2) {
+      throw EditException('Volume must be between 0 and 2.');
+    }
+    if (updated.fadeIn + updated.fadeOut > updated.duration) {
+      throw EditException('The fades are longer than the audio.');
+    }
+    return project.copyWith(
+      audio: [for (final x in project.audio) x.id == itemId ? updated : x],
+    );
+  }
+}
+
+class SetAudioMix extends EditCommand {
+  const SetAudioMix(this.mix);
+  final AudioMix mix;
+
+  @override
+  String get label => 'Change the audio mix';
+
+  @override
+  Project apply(Project project) {
+    if (mix.original < 0 ||
+        mix.original > 2 ||
+        mix.voiceover < 0 ||
+        mix.voiceover > 2) {
+      throw EditException('Volume must be between 0 and 2.');
+    }
+    return project.copyWith(mix: mix);
+  }
+}
+
 class RemoveAudio extends EditCommand {
   const RemoveAudio(this.itemId);
   final String itemId;

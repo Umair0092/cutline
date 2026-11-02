@@ -35,6 +35,9 @@ _Project _$ProjectFromJson(Map<String, dynamic> json) => _Project(
           ?.map((e) => TitleItem.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <TitleItem>[],
+  mix: json['mix'] == null
+      ? const AudioMix()
+      : AudioMix.fromJson(json['mix'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$ProjectToJson(_Project instance) => <String, dynamic>{
@@ -45,4 +48,5 @@ Map<String, dynamic> _$ProjectToJson(_Project instance) => <String, dynamic>{
   'overlays': instance.overlays.map((e) => e.toJson()).toList(),
   'audio': instance.audio.map((e) => e.toJson()).toList(),
   'titles': instance.titles.map((e) => e.toJson()).toList(),
+  'mix': instance.mix.toJson(),
 };

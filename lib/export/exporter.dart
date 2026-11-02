@@ -152,7 +152,6 @@ class Exporter {
     // laid over the video in order: overlays by layer, titles on top.
     final work = Directory.systemTemp.createTempSync('cutline_export');
     final overlays = <({String path, Duration start})>[];
-    final sounds = <OverlaySound>[];
     final items = [...project.overlays]
       ..sort((a, b) => a.layer.compareTo(b.layer));
     for (final item in items) {
@@ -174,14 +173,6 @@ class Exporter {
         length: length,
       );
       overlays.add((path: path, start: item.start));
-      if (media.hasAudio && item.volume > 0) {
-        sounds.add((
-          path: source,
-          start: item.start,
-          length: length,
-          volume: item.volume,
-        ));
-      }
     }
     for (final title in project.titles) {
       final path = p.join(work.path, '${title.id}.mov');
@@ -202,7 +193,6 @@ class Exporter {
       encoder: encoder,
       outputPath: outputPath,
       titleOverlays: overlays,
-      sounds: sounds,
     );
     final process = await Process.start(ffmpeg, args);
     final job = ExportJob._(process, outputPath, project.duration);

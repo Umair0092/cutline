@@ -14,8 +14,9 @@ import '../preview/preview_controller.dart';
 import '../storage/project_store.dart';
 import '../export/exporter.dart';
 import '../model/media_asset.dart';
-import '../model/overlay_item.dart';
 import '../model/title_item.dart';
+import '../audio/audio_widgets.dart';
+import '../audio/recording.dart';
 import '../memes/meme_actions.dart';
 import '../memes/meme_search.dart';
 import '../overlays/overlay_actions.dart';
@@ -35,6 +36,18 @@ void splitAtPlayhead(WidgetRef ref, BuildContext context) {
 /// Deletes the selected overlay, title or clip. Shared by the toolbar and
 /// Delete/Backspace.
 void deleteSelectedClip(WidgetRef ref, BuildContext context) {
+  final audioId = ref.read(timelineUiProvider).selectedAudioId;
+  if (audioId != null) {
+    if (ref
+        .read(projectEditorProvider)
+        .project
+        .audio
+        .any((a) => a.id == audioId)) {
+      _runOrShow(ref, context, RemoveAudio(audioId));
+    }
+    ref.read(timelineUiProvider.notifier).selectAudio(null);
+    return;
+  }
   final overlayId = ref.read(timelineUiProvider).selectedOverlayId;
   if (overlayId != null) {
     if (ref
@@ -213,7 +226,8 @@ class _Toolbar extends ConsumerWidget {
             onPressed:
                 ui.selectedClipId != null ||
                     ui.selectedTitleId != null ||
-                    ui.selectedOverlayId != null
+                    ui.selectedOverlayId != null ||
+                    ui.selectedAudioId != null
                 ? () => deleteSelectedClip(ref, context)
                 : null,
           ),
@@ -229,6 +243,18 @@ class _Toolbar extends ConsumerWidget {
             icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
             onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
           ),
+          IconButton(
+            key: const Key('record-voiceover'),
+            tooltip: 'Record a voiceover',
+            icon: const Icon(Icons.mic_none, size: 18),
+            onPressed: hasClips
+                ? () {
+                    final rec = ref.read(recordingProvider.notifier);
+                    ref.read(recordingProvider).open ? rec.hide() : rec.show();
+                  }
+                : null,
+          ),
+          if (hasClips) const AudioMixButton(),
           const Spacer(),
           IconButton(
             tooltip: 'Zoom out (-)',
@@ -265,7 +291,7 @@ class TimelineTracks extends ConsumerStatefulWidget {
   ConsumerState<TimelineTracks> createState() => _TimelineTracksState();
 }
 
-enum _DragKind { scrub, trim, move, moveTitle, moveOverlay, trimOverlay }
+enum _DragKind { scrub, trim, move, moveTitle, moveSpan, trimSpan }
 
 class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   final _scroll = ScrollController();
@@ -351,26 +377,59 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       y >= TimelineRows.titleTop &&
       y <= TimelineRows.titleTop + TimelineRows.rowHeight;
 
-  bool _inOverlayRow(double y) =>
-      y >= TimelineRows.overlayTop &&
-      y <= TimelineRows.overlayTop + TimelineRows.rowHeight;
+  bool _inRow(double y, double top) =>
+      y >= top && y <= top + TimelineRows.rowHeight;
 
-  /// The overlay under the pointer, and whether it's on its right edge
-  /// (which stretches it).
-  ({OverlayItem item, bool edge})? _hitOverlay(Offset at) {
-    if (!_inOverlayRow(at.dy)) return null;
+  /// The overlay or audio item under the pointer, and whether it's on its
+  /// right edge (which stretches it).
+  ({SpanDrag span, bool edge})? _hitSpan(Offset at) {
     final g = _geometry();
-    for (final o in g.project.overlays.reversed) {
-      final left = g.xOf(o.start);
-      final right = g.xOf(o.end);
+    final List<SpanDrag> spans;
+    if (_inRow(at.dy, TimelineRows.overlayTop)) {
+      spans = [
+        for (final o in g.project.overlays)
+          (audio: false, id: o.id, start: o.start, duration: o.duration),
+      ];
+    } else if (_inRow(at.dy, TimelineRows.audioTop)) {
+      spans = [
+        for (final a in g.project.audio)
+          (audio: true, id: a.id, start: a.start, duration: a.duration),
+      ];
+    } else {
+      return null;
+    }
+    for (final span in spans.reversed) {
+      final left = g.xOf(span.start);
+      final right = g.xOf(span.start + span.duration);
       if (at.dx >= left && at.dx <= right + 4) {
-        return (item: o, edge: at.dx >= right - 6);
+        return (span: span, edge: at.dx >= right - 6);
       }
     }
     return null;
   }
 
-  ({String id, Duration start, Duration duration})? _overlayDrag;
+  void _selectSpan(SpanDrag span) {
+    final ui = ref.read(timelineUiProvider.notifier);
+    span.audio ? ui.selectAudio(span.id) : ui.selectOverlay(span.id);
+  }
+
+  /// The longest an item can be stretched: audio stops where its file
+  /// ends; overlays loop, so only the video's end limits them.
+  Duration _maxLength(SpanDrag span) {
+    final project = ref.read(projectEditorProvider).project;
+    var max = project.duration - span.start;
+    if (span.audio) {
+      final a = project.audio.where((a) => a.id == span.id).firstOrNull;
+      final media = a == null ? null : project.mediaById(a.mediaId);
+      if (a != null && media != null && media.duration > Duration.zero) {
+        final room = media.duration - a.sourceStart;
+        if (room < max) max = room;
+      }
+    }
+    return max;
+  }
+
+  SpanDrag? _spanDrag;
 
   /// The title under the pointer in the titles row, if any.
   TitleItem? _hitTitle(Offset at) {
@@ -414,7 +473,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onHover(PointerHoverEvent e) {
-    final overlay = _hitOverlay(e.localPosition);
+    final overlay = _hitSpan(e.localPosition);
     if (overlay != null) {
       final cursor = overlay.edge
           ? SystemMouseCursors.resizeLeftRight
@@ -446,9 +505,9 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       _seekTo(d.localPosition.dx);
       return;
     }
-    final overlay = _hitOverlay(d.localPosition);
-    if (overlay != null) {
-      ref.read(timelineUiProvider.notifier).selectOverlay(overlay.item.id);
+    final span = _hitSpan(d.localPosition);
+    if (span != null) {
+      _selectSpan(span.span);
       _seekTo(d.localPosition.dx);
       return;
     }
@@ -473,16 +532,13 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
       });
       return;
     }
-    final overlay = _hitOverlay(d.localPosition);
-    if (overlay != null) {
-      final o = overlay.item;
-      ref.read(timelineUiProvider.notifier).selectOverlay(o.id);
-      _spanGrab = _geometry().timeAt(d.localPosition.dx) - o.start;
+    final spanHit = _hitSpan(d.localPosition);
+    if (spanHit != null) {
+      _selectSpan(spanHit.span);
+      _spanGrab = _geometry().timeAt(d.localPosition.dx) - spanHit.span.start;
       setState(() {
-        _dragKind = overlay.edge
-            ? _DragKind.trimOverlay
-            : _DragKind.moveOverlay;
-        _overlayDrag = (id: o.id, start: o.start, duration: o.duration);
+        _dragKind = spanHit.edge ? _DragKind.trimSpan : _DragKind.moveSpan;
+        _spanDrag = spanHit.span;
       });
       return;
     }
@@ -535,8 +591,8 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
           ...g.project.clipStarts,
         ]);
         setState(() => _titleDrag = (id: _titleDrag!.id, start: start));
-      case _DragKind.moveOverlay when _overlayDrag != null:
-        final od = _overlayDrag!;
+      case _DragKind.moveSpan when _spanDrag != null:
+        final od = _spanDrag!;
         var start = g.timeAt(d.localPosition.dx) - _spanGrab;
         if (start < Duration.zero) start = Duration.zero;
         start = g.snap(start, [
@@ -547,10 +603,15 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         final last = g.project.duration - minClipDuration;
         if (start > last) start = last;
         setState(
-          () => _overlayDrag = (id: od.id, start: start, duration: od.duration),
+          () => _spanDrag = (
+            audio: od.audio,
+            id: od.id,
+            start: start,
+            duration: od.duration,
+          ),
         );
-      case _DragKind.trimOverlay when _overlayDrag != null:
-        final od = _overlayDrag!;
+      case _DragKind.trimSpan when _spanDrag != null:
+        final od = _spanDrag!;
         var end = g.snap(g.timeAt(d.localPosition.dx), [
           _position.value,
           ...g.project.clipStarts,
@@ -558,9 +619,16 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         ]);
         if (end > g.project.duration) end = g.project.duration;
         var length = end - od.start;
+        final max = _maxLength(od);
+        if (length > max) length = max;
         if (length < minClipDuration) length = minClipDuration;
         setState(
-          () => _overlayDrag = (id: od.id, start: od.start, duration: length),
+          () => _spanDrag = (
+            audio: od.audio,
+            id: od.id,
+            start: od.start,
+            duration: length,
+          ),
         );
       case _DragKind.trim when drag is TrimDrag:
         final raw = g.timeAt(d.localPosition.dx - _grabOffset);
@@ -581,30 +649,37 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   }
 
   void _onPanEnd(DragEndDetails _) {
-    final overlayDrag = _overlayDrag;
-    if (overlayDrag != null) {
+    final span = _spanDrag;
+    if (span != null) {
       setState(() {
-        _overlayDrag = null;
+        _spanDrag = null;
         _dragKind = null;
       });
-      final o = ref
-          .read(projectEditorProvider)
-          .project
-          .overlays
-          .where((o) => o.id == overlayDrag.id)
-          .firstOrNull;
-      if (o != null &&
-          (o.start != overlayDrag.start ||
-              o.duration != overlayDrag.duration)) {
-        _runOrShow(
-          ref,
-          context,
-          UpdateOverlay(
-            overlayDrag.id,
-            start: overlayDrag.start,
-            duration: overlayDrag.duration,
-          ),
-        );
+      final project = ref.read(projectEditorProvider).project;
+      if (span.audio) {
+        final a = project.audio.where((a) => a.id == span.id).firstOrNull;
+        if (a != null &&
+            (a.start != span.start || a.duration != span.duration)) {
+          _runOrShow(
+            ref,
+            context,
+            UpdateAudio(
+              span.id,
+              start: span.start,
+              sourceEnd: a.sourceStart + span.duration,
+            ),
+          );
+        }
+      } else {
+        final o = project.overlays.where((o) => o.id == span.id).firstOrNull;
+        if (o != null &&
+            (o.start != span.start || o.duration != span.duration)) {
+          _runOrShow(
+            ref,
+            context,
+            UpdateOverlay(span.id, start: span.start, duration: span.duration),
+          );
+        }
       }
       return;
     }
@@ -730,7 +805,7 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
               child: MouseRegion(
                 cursor:
                     _dragKind == _DragKind.move ||
-                        _dragKind == _DragKind.moveOverlay
+                        _dragKind == _DragKind.moveSpan
                     ? SystemMouseCursors.grabbing
                     : _cursor,
                 onHover: _onHover,
@@ -781,7 +856,8 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                             selectedTitleId: ui.selectedTitleId,
                             titleDrag: _titleDrag,
                             selectedOverlayId: ui.selectedOverlayId,
-                            overlayDrag: _overlayDrag,
+                            spanDrag: _spanDrag,
+                            selectedAudioId: ui.selectedAudioId,
                           ),
                           foregroundPainter: PlayheadPainter(
                             geometry: g,

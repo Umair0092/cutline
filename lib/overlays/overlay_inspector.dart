@@ -7,6 +7,7 @@ import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
 import '../model/overlay_item.dart';
 import '../timeline/timeline_state.dart';
+import '../ui/commit_slider.dart';
 
 /// Settings for the selected overlay, shown under the preview.
 class OverlayInspector extends ConsumerWidget {
@@ -68,7 +69,7 @@ class OverlayInspector extends ConsumerWidget {
                 ? null
                 : run(UpdateOverlay(o.id, animation: a)),
           ),
-          _CommitSlider(
+          CommitSlider(
             key: Key('overlay-opacity-${o.id}'),
             icon: Icons.opacity,
             tooltip: 'Opacity',
@@ -79,7 +80,7 @@ class OverlayInspector extends ConsumerWidget {
               UpdateOverlay(o.id, transform: o.transform.copyWith(opacity: v)),
             ),
           ),
-          _CommitSlider(
+          CommitSlider(
             key: Key('overlay-rotation-${o.id}'),
             icon: Icons.rotate_right,
             tooltip: 'Rotation',
@@ -95,7 +96,7 @@ class OverlayInspector extends ConsumerWidget {
             ),
           ),
           if (media?.hasAudio ?? false)
-            _CommitSlider(
+            CommitSlider(
               key: Key('overlay-volume-${o.id}'),
               icon: o.volume == 0 ? Icons.volume_off : Icons.volume_up,
               tooltip: 'Sound',
@@ -124,57 +125,3 @@ String _animationLabel(OverlayAnimation a) => switch (a) {
   OverlayAnimation.fade => 'Fade in',
   OverlayAnimation.slide => 'Slide up',
 };
-
-/// A slider that shows changes live but only commits (one undo step) when
-/// you let go.
-class _CommitSlider extends StatefulWidget {
-  const _CommitSlider({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onCommit,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final double value;
-  final double min;
-  final double max;
-  final ValueChanged<double> onCommit;
-
-  @override
-  State<_CommitSlider> createState() => _CommitSliderState();
-}
-
-class _CommitSliderState extends State<_CommitSlider> {
-  double? _dragging;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(widget.icon, size: 16),
-          SizedBox(
-            width: 110,
-            child: Slider(
-              value: (_dragging ?? widget.value).clamp(widget.min, widget.max),
-              min: widget.min,
-              max: widget.max,
-              onChanged: (v) => setState(() => _dragging = v),
-              onChangeEnd: (v) {
-                setState(() => _dragging = null);
-                if (v != widget.value) widget.onCommit(v);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

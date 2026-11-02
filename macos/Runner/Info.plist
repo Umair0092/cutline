@@ -39,6 +39,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Cutline records your voiceover from the microphone.</string>
 	<key>NSAppSleepDisabled</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

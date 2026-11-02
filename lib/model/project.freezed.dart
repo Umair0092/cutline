@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Project {
 
- int get schemaVersion; String get name; List<MediaAsset> get media; List<VideoClip> get clips; List<OverlayItem> get overlays; List<AudioItem> get audio; List<TitleItem> get titles;
+ int get schemaVersion; String get name; List<MediaAsset> get media; List<VideoClip> get clips; List<OverlayItem> get overlays; List<AudioItem> get audio; List<TitleItem> get titles; AudioMix get mix;
 /// Create a copy of Project
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $ProjectCopyWith<Project> get copyWith => _$ProjectCopyWithImpl<Project>(this as
 @override
 bool operator ==(Object other) {
   final _this = this as Project;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Project&&(identical(other.schemaVersion, _this.schemaVersion) || other.schemaVersion == _this.schemaVersion)&&(identical(other.name, _this.name) || other.name == _this.name)&&const DeepCollectionEquality().equals(other.media, _this.media)&&const DeepCollectionEquality().equals(other.clips, _this.clips)&&const DeepCollectionEquality().equals(other.overlays, _this.overlays)&&const DeepCollectionEquality().equals(other.audio, _this.audio)&&const DeepCollectionEquality().equals(other.titles, _this.titles));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Project&&(identical(other.schemaVersion, _this.schemaVersion) || other.schemaVersion == _this.schemaVersion)&&(identical(other.name, _this.name) || other.name == _this.name)&&const DeepCollectionEquality().equals(other.media, _this.media)&&const DeepCollectionEquality().equals(other.clips, _this.clips)&&const DeepCollectionEquality().equals(other.overlays, _this.overlays)&&const DeepCollectionEquality().equals(other.audio, _this.audio)&&const DeepCollectionEquality().equals(other.titles, _this.titles)&&(identical(other.mix, _this.mix) || other.mix == _this.mix));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Project;
-  return Object.hash(runtimeType,_this.schemaVersion,_this.name,const DeepCollectionEquality().hash(_this.media),const DeepCollectionEquality().hash(_this.clips),const DeepCollectionEquality().hash(_this.overlays),const DeepCollectionEquality().hash(_this.audio),const DeepCollectionEquality().hash(_this.titles));
+  return Object.hash(runtimeType,_this.schemaVersion,_this.name,const DeepCollectionEquality().hash(_this.media),const DeepCollectionEquality().hash(_this.clips),const DeepCollectionEquality().hash(_this.overlays),const DeepCollectionEquality().hash(_this.audio),const DeepCollectionEquality().hash(_this.titles),_this.mix);
 }
 
 @override
 String toString() {
   final _this = this as Project;
-  return 'Project(schemaVersion: ${_this.schemaVersion}, name: ${_this.name}, media: ${_this.media}, clips: ${_this.clips}, overlays: ${_this.overlays}, audio: ${_this.audio}, titles: ${_this.titles})';
+  return 'Project(schemaVersion: ${_this.schemaVersion}, name: ${_this.name}, media: ${_this.media}, clips: ${_this.clips}, overlays: ${_this.overlays}, audio: ${_this.audio}, titles: ${_this.titles}, mix: ${_this.mix})';
 }
 
 
@@ -54,11 +54,11 @@ abstract mixin class $ProjectCopyWith<$Res>  {
   factory $ProjectCopyWith(Project value, $Res Function(Project) _then) = _$ProjectCopyWithImpl;
 @useResult
 $Res call({
- int schemaVersion, String name, List<MediaAsset> media, List<VideoClip> clips, List<OverlayItem> overlays, List<AudioItem> audio, List<TitleItem> titles
+ int schemaVersion, String name, List<MediaAsset> media, List<VideoClip> clips, List<OverlayItem> overlays, List<AudioItem> audio, List<TitleItem> titles, AudioMix mix
 });
 
 
-
+$AudioMixCopyWith<$Res> get mix;
 
 }
 /// @nodoc
@@ -71,7 +71,7 @@ class _$ProjectCopyWithImpl<$Res>
 
 /// Create a copy of Project
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? schemaVersion = null,Object? name = null,Object? media = null,Object? clips = null,Object? overlays = null,Object? audio = null,Object? titles = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? schemaVersion = null,Object? name = null,Object? media = null,Object? clips = null,Object? overlays = null,Object? audio = null,Object? titles = null,Object? mix = null,}) {
   return _then(Project(
 schemaVersion: null == schemaVersion ? _self.schemaVersion : schemaVersion // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -80,10 +80,20 @@ as List<MediaAsset>,clips: null == clips ? _self.clips : clips // ignore: cast_n
 as List<VideoClip>,overlays: null == overlays ? _self.overlays : overlays // ignore: cast_nullable_to_non_nullable
 as List<OverlayItem>,audio: null == audio ? _self.audio : audio // ignore: cast_nullable_to_non_nullable
 as List<AudioItem>,titles: null == titles ? _self.titles : titles // ignore: cast_nullable_to_non_nullable
-as List<TitleItem>,
+as List<TitleItem>,mix: null == mix ? _self.mix : mix // ignore: cast_nullable_to_non_nullable
+as AudioMix,
   ));
 }
-
+/// Create a copy of Project
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AudioMixCopyWith<$Res> get mix {
+  
+  return $AudioMixCopyWith<$Res>(_self.mix, (value) {
+    return _then(_self.copyWith(mix: value));
+  });
+}
 }
 
 
@@ -165,10 +175,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles,  AudioMix mix)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Project() when $default != null:
-return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles);case _:
+return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles,_that.mix);case _:
   return orElse();
 
 }
@@ -186,10 +196,10 @@ return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.ove
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles,  AudioMix mix)  $default,) {final _that = this;
 switch (_that) {
 case _Project():
-return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles);case _:
+return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles,_that.mix);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -206,10 +216,10 @@ return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.ove
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int schemaVersion,  String name,  List<MediaAsset> media,  List<VideoClip> clips,  List<OverlayItem> overlays,  List<AudioItem> audio,  List<TitleItem> titles,  AudioMix mix)?  $default,) {final _that = this;
 switch (_that) {
 case _Project() when $default != null:
-return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles);case _:
+return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.overlays,_that.audio,_that.titles,_that.mix);case _:
   return null;
 
 }
@@ -221,7 +231,7 @@ return $default(_that.schemaVersion,_that.name,_that.media,_that.clips,_that.ove
 @JsonSerializable()
 
 class _Project extends Project {
-  const _Project({this.schemaVersion = Project.currentSchemaVersion, this.name = 'Untitled',  List<MediaAsset> media = const <MediaAsset>[],  List<VideoClip> clips = const <VideoClip>[],  List<OverlayItem> overlays = const <OverlayItem>[],  List<AudioItem> audio = const <AudioItem>[],  List<TitleItem> titles = const <TitleItem>[]}): _media = media,_clips = clips,_overlays = overlays,_audio = audio,_titles = titles,super._();
+  const _Project({this.schemaVersion = Project.currentSchemaVersion, this.name = 'Untitled',  List<MediaAsset> media = const <MediaAsset>[],  List<VideoClip> clips = const <VideoClip>[],  List<OverlayItem> overlays = const <OverlayItem>[],  List<AudioItem> audio = const <AudioItem>[],  List<TitleItem> titles = const <TitleItem>[], this.mix = const AudioMix()}): _media = media,_clips = clips,_overlays = overlays,_audio = audio,_titles = titles,super._();
   factory _Project.fromJson(Map<String, dynamic> json) => _$ProjectFromJson(json);
 
 @override@JsonKey() final  int schemaVersion;
@@ -261,6 +271,7 @@ class _Project extends Project {
   return EqualUnmodifiableListView(_titles);
 }
 
+@override@JsonKey() final  AudioMix mix;
 
 /// Create a copy of Project
 /// with the given fields replaced by the non-null parameter values.
@@ -275,18 +286,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Project&&(identical(other.schemaVersion, schemaVersion) || other.schemaVersion == schemaVersion)&&(identical(other.name, name) || other.name == name)&&const DeepCollectionEquality().equals(other.media, _media)&&const DeepCollectionEquality().equals(other.clips, _clips)&&const DeepCollectionEquality().equals(other.overlays, _overlays)&&const DeepCollectionEquality().equals(other.audio, _audio)&&const DeepCollectionEquality().equals(other.titles, _titles));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Project&&(identical(other.schemaVersion, schemaVersion) || other.schemaVersion == schemaVersion)&&(identical(other.name, name) || other.name == name)&&const DeepCollectionEquality().equals(other.media, _media)&&const DeepCollectionEquality().equals(other.clips, _clips)&&const DeepCollectionEquality().equals(other.overlays, _overlays)&&const DeepCollectionEquality().equals(other.audio, _audio)&&const DeepCollectionEquality().equals(other.titles, _titles)&&(identical(other.mix, mix) || other.mix == mix));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,schemaVersion,name,const DeepCollectionEquality().hash(_media),const DeepCollectionEquality().hash(_clips),const DeepCollectionEquality().hash(_overlays),const DeepCollectionEquality().hash(_audio),const DeepCollectionEquality().hash(_titles));
+    return Object.hash(runtimeType,schemaVersion,name,const DeepCollectionEquality().hash(_media),const DeepCollectionEquality().hash(_clips),const DeepCollectionEquality().hash(_overlays),const DeepCollectionEquality().hash(_audio),const DeepCollectionEquality().hash(_titles),mix);
 }
 
 @override
 String toString() {
-    return 'Project(schemaVersion: $schemaVersion, name: $name, media: $media, clips: $clips, overlays: $overlays, audio: $audio, titles: $titles)';
+    return 'Project(schemaVersion: $schemaVersion, name: $name, media: $media, clips: $clips, overlays: $overlays, audio: $audio, titles: $titles, mix: $mix)';
 }
 
 
@@ -297,11 +308,11 @@ abstract mixin class _$ProjectCopyWith<$Res> implements $ProjectCopyWith<$Res> {
   factory _$ProjectCopyWith(_Project value, $Res Function(_Project) _then) = __$ProjectCopyWithImpl;
 @override @useResult
 $Res call({
- int schemaVersion, String name, List<MediaAsset> media, List<VideoClip> clips, List<OverlayItem> overlays, List<AudioItem> audio, List<TitleItem> titles
+ int schemaVersion, String name, List<MediaAsset> media, List<VideoClip> clips, List<OverlayItem> overlays, List<AudioItem> audio, List<TitleItem> titles, AudioMix mix
 });
 
 
-
+@override $AudioMixCopyWith<$Res> get mix;
 
 }
 /// @nodoc
@@ -314,7 +325,7 @@ class __$ProjectCopyWithImpl<$Res>
 
 /// Create a copy of Project
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? schemaVersion = null,Object? name = null,Object? media = null,Object? clips = null,Object? overlays = null,Object? audio = null,Object? titles = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? schemaVersion = null,Object? name = null,Object? media = null,Object? clips = null,Object? overlays = null,Object? audio = null,Object? titles = null,Object? mix = null,}) {
   return _then(_Project(
 schemaVersion: null == schemaVersion ? _self.schemaVersion : schemaVersion // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -323,11 +334,21 @@ as List<MediaAsset>,clips: null == clips ? _self._clips : clips // ignore: cast_
 as List<VideoClip>,overlays: null == overlays ? _self._overlays : overlays // ignore: cast_nullable_to_non_nullable
 as List<OverlayItem>,audio: null == audio ? _self._audio : audio // ignore: cast_nullable_to_non_nullable
 as List<AudioItem>,titles: null == titles ? _self._titles : titles // ignore: cast_nullable_to_non_nullable
-as List<TitleItem>,
+as List<TitleItem>,mix: null == mix ? _self.mix : mix // ignore: cast_nullable_to_non_nullable
+as AudioMix,
   ));
 }
 
-
+/// Create a copy of Project
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AudioMixCopyWith<$Res> get mix {
+  
+  return $AudioMixCopyWith<$Res>(_self.mix, (value) {
+    return _then(_self.copyWith(mix: value));
+  });
+}
 }
 
 // dart format on

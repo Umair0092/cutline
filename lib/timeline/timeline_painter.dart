@@ -17,6 +17,10 @@ String titleLabel(TitleSpec spec) {
   return text ?? template?.name ?? 'Title';
 }
 
+/// An overlay or audio item being moved or stretched: where it would start
+/// and how long it would be.
+typedef SpanDrag = ({bool audio, String id, Duration start, Duration duration});
+
 /// Vertical layout of the timeline rows.
 abstract final class TimelineRows {
   static const ruler = Rect.fromLTRB(0, 0, 0, 24);
@@ -86,7 +90,8 @@ class TracksPainter extends CustomPainter {
     this.selectedTitleId,
     this.titleDrag,
     this.selectedOverlayId,
-    this.overlayDrag,
+    this.spanDrag,
+    this.selectedAudioId,
   });
 
   final TimelineGeometry geometry;
@@ -110,9 +115,9 @@ class TracksPainter extends CustomPainter {
 
   final String? selectedOverlayId;
 
-  /// An overlay being moved or stretched: where it would start and how
-  /// long it would be.
-  final ({String id, Duration start, Duration duration})? overlayDrag;
+  final SpanDrag? spanDrag;
+
+  final String? selectedAudioId;
 
   Project get project => geometry.project;
 
@@ -125,9 +130,7 @@ class TracksPainter extends CustomPainter {
     }
     _paintTitles(canvas);
     _paintOverlays(canvas);
-    _paintSpans(canvas, TimelineRows.audioTop, colors.audio, [
-      for (final a in project.audio) (a.start, a.end),
-    ]);
+    _paintAudio(canvas);
     if (dropX != null) {
       canvas.drawRect(
         Rect.fromLTWH(
@@ -339,7 +342,7 @@ class TracksPainter extends CustomPainter {
 
   void _paintOverlays(Canvas canvas) {
     for (final o in project.overlays) {
-      final d = overlayDrag?.id == o.id ? overlayDrag : null;
+      final d = spanDrag?.id == o.id ? spanDrag : null;
       final start = d?.start ?? o.start;
       final rect = Rect.fromLTRB(
         geometry.xOf(start),
@@ -354,6 +357,26 @@ class TracksPainter extends CustomPainter {
         colors.sticker,
         media == null ? 'Overlay' : p.basename(media.path),
         selected: o.id == selectedOverlayId,
+      );
+    }
+  }
+
+  void _paintAudio(Canvas canvas) {
+    for (final a in project.audio) {
+      final d = spanDrag?.id == a.id ? spanDrag : null;
+      final start = d?.start ?? a.start;
+      final rect = Rect.fromLTRB(
+        geometry.xOf(start),
+        TimelineRows.audioTop,
+        geometry.xOf(start + (d?.duration ?? a.duration)),
+        TimelineRows.audioTop + TimelineRows.rowHeight,
+      );
+      _paintLabelledSpan(
+        canvas,
+        rect,
+        colors.audio,
+        '${a.role.name[0].toUpperCase()}${a.role.name.substring(1)}',
+        selected: a.id == selectedAudioId,
       );
     }
   }
@@ -389,28 +412,6 @@ class TracksPainter extends CustomPainter {
       canvas,
       Offset(rect.left + 5, rect.center.dy - label.height / 2),
     );
-  }
-
-  void _paintSpans(
-    Canvas canvas,
-    double top,
-    Color color,
-    List<(Duration, Duration)> spans,
-  ) {
-    for (final (start, end) in spans) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTRB(
-            geometry.xOf(start),
-            top,
-            geometry.xOf(end),
-            top + TimelineRows.rowHeight,
-          ),
-          const Radius.circular(4),
-        ),
-        Paint()..color = color,
-      );
-    }
   }
 
   // Only rebuilt when the project, zoom, scroll, selection or a drag
