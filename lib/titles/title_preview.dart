@@ -6,13 +6,18 @@ import '../model/title_item.dart';
 import '../preview/playhead_clock.dart';
 import '../preview/preview_controller.dart';
 import 'templates.dart';
+import 'title_images.dart';
 
 /// Paints one title at local time [t] (seconds).
 class TitlePainter extends CustomPainter {
-  TitlePainter(this.spec, this.t);
+  TitlePainter(this.spec, this.t, {this.projectPath})
+    : super(repaint: TitleImages.instance);
 
   final TitleSpec spec;
   final double t;
+
+  /// Where image fields' relative paths are found.
+  final String? projectPath;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -24,12 +29,13 @@ class TitlePainter extends CustomPainter {
       size,
       t,
       spec.duration.inMicroseconds / 1e6,
-      TitleValues(template, spec.fields),
+      titleValues(spec, projectPath),
     );
   }
 
   @override
-  bool shouldRepaint(TitlePainter old) => old.spec != spec || old.t != t;
+  bool shouldRepaint(TitlePainter old) =>
+      old.spec != spec || old.t != t || old.projectPath != projectPath;
 }
 
 /// Draws the titles that are on screen at the playhead, over the video.
@@ -58,6 +64,7 @@ class _TitleLayerState extends ConsumerState<TitleLayer>
     final titles = ref.watch(
       projectEditorProvider.select((s) => s.project.titles),
     );
+    final workPath = ref.watch(projectEditorProvider.select((s) => s.workPath));
     return IgnorePointer(
       child: ListenableBuilder(
         listenable: _clock,
@@ -73,6 +80,7 @@ class _TitleLayerState extends ConsumerState<TitleLayer>
                     painter: TitlePainter(
                       title.spec,
                       (now - title.start).inMicroseconds / 1e6,
+                      projectPath: workPath,
                     ),
                   ),
             ],

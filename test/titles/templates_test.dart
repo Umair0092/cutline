@@ -52,7 +52,12 @@ void main() {
       hasLength(titleTemplates.length),
     );
     for (final t in titleTemplates) {
-      expect(t.fields.where((f) => f.kind == FieldKind.font), hasLength(1));
+      // At most one font; a logo watermark has no text at all.
+      expect(
+        t.fields.where((f) => f.kind == FieldKind.font).length,
+        lessThanOrEqualTo(1),
+        reason: t.id,
+      );
       for (final f in t.fields.where((f) => f.kind == FieldKind.color)) {
         expect(
           parseHexColor(f.defaultValue),
@@ -63,6 +68,7 @@ void main() {
     }
     expect(titleTemplates.where((t) => !t.fullFrame).map((t) => t.id), [
       'lower-third',
+      'logo-corner',
     ]);
   });
 

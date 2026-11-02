@@ -1,10 +1,25 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:characters/characters.dart';
 
 import 'package:flutter/painting.dart';
 
-enum FieldKind { text, color, font }
+part 'image_templates.dart';
+
+enum FieldKind {
+  text,
+  color,
+  font,
+
+  /// A picture in the project (a logo, a photo): its path, relative to the
+  /// project folder.
+  image,
+}
+
+/// Finds the decoded picture for an image field's value. Null while it
+/// loads or when there's none.
+typedef ImageLookup = ui.Image? Function(String value);
 
 class TemplateField {
   const TemplateField(this.key, this.label, this.kind, this.defaultValue);
@@ -20,13 +35,25 @@ const titleFonts = ['Inter', 'Bebas Neue', 'Playfair Display'];
 
 /// Field values with the template's defaults filled in.
 class TitleValues {
-  TitleValues(this.template, Map<String, String> raw)
-    : _values = {
+  TitleValues(this.template, Map<String, String> raw, {ImageLookup? image})
+    : _image = image, // ignore: prefer_initializing_formals
+      _values = {
         for (final f in template.fields) f.key: raw[f.key] ?? f.defaultValue,
       };
 
   final TitleTemplate template;
   final Map<String, String> _values;
+  final ImageLookup? _image;
+
+  /// The picture in an image field, or null (none chosen, or loading).
+  ui.Image? image(String key) {
+    final v = _values[key];
+    if (v == null || v.isEmpty) return null;
+    return _image?.call(v);
+  }
+
+  /// Whether an image field has a picture chosen (loaded or not).
+  bool hasImage(String key) => (_values[key] ?? '').isNotEmpty;
 
   String text(String key) => _values[key] ?? '';
 
@@ -79,6 +106,11 @@ const titleTemplates = <TitleTemplate>[
   BoldKinetic(),
   LowerThird(),
   LogoReveal(),
+  LogoSpin(),
+  LogoPop(),
+  LogoShine(),
+  LogoCorner(),
+  PhotoShowcase(),
 ];
 
 TitleTemplate? templateById(String id) =>
@@ -397,13 +429,14 @@ class LogoReveal extends TitleTemplate {
   String get name => 'Logo reveal';
   @override
   String get description =>
-      'A circle with your initials grows, then your name.';
+      'A circle with your logo (or initials) grows, then your name.';
   @override
   bool get fullFrame => true;
   @override
   Duration get defaultDuration => const Duration(seconds: 4);
   @override
   List<TemplateField> get fields => const [
+    TemplateField('logo', 'Logo (optional)', FieldKind.image, ''),
     TemplateField('name', 'Name', FieldKind.text, 'Your Name'),
     TemplateField('subtitle', 'Subtitle', FieldKind.text, 'Weekly videos'),
     TemplateField('background', 'Background', FieldKind.color, '#0B0D12'),
@@ -439,12 +472,27 @@ class LogoReveal extends TitleTemplate {
         ..strokeWidth = 3 * u
         ..color = v.color('accent').withValues(alpha: 0.5 * out),
     );
-    final ini = _layout(
-      initials(v.text('name')),
-      _style(v.font('font'), 120 * u, v.color('textColor')),
-      260 * u,
-    );
-    _drawText(canvas, ini, c, opacity: _ease(t, 0.4, 0.9) * out);
+    final logo = v.image('logo');
+    if (logo != null && r > 0) {
+      final inner = Rect.fromCircle(center: c, radius: r * 0.72);
+      canvas
+        ..save()
+        ..clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)));
+      _drawImage(
+        canvas,
+        logo,
+        _contain(logo, inner),
+        opacity: _ease(t, 0.3, 0.8) * out,
+      );
+      canvas.restore();
+    } else {
+      final ini = _layout(
+        initials(v.text('name')),
+        _style(v.font('font'), 120 * u, v.color('textColor')),
+        260 * u,
+      );
+      _drawText(canvas, ini, c, opacity: _ease(t, 0.4, 0.9) * out);
+    }
 
     final name = _layout(
       v.text('name'),

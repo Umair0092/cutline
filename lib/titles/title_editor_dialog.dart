@@ -1,4 +1,10 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+
+import '../media/image_import.dart';
+import '../storage/project_store.dart';
 
 import '../model/title_item.dart';
 import 'templates.dart';
@@ -15,12 +21,16 @@ Future<TitleEdit?> showTitleEditor(
   TitleSpec? initial,
   TitlePlacement? placement,
   double aspectRatio = 16 / 9,
+  String? projectPath,
+  String? templateId,
 }) => showDialog<TitleEdit>(
   context: context,
   builder: (_) => TitleEditorDialog(
     initial: initial,
     placement: placement,
     aspectRatio: aspectRatio,
+    projectPath: projectPath,
+    templateId: templateId,
   ),
 );
 
@@ -41,11 +51,19 @@ class TitleEditorDialog extends StatefulWidget {
     this.initial,
     this.placement,
     this.aspectRatio = 16 / 9,
+    this.projectPath,
+    this.templateId,
   });
 
   final TitleSpec? initial;
   final TitlePlacement? placement;
   final double aspectRatio;
+
+  /// The project folder: pictures you pick are copied into it.
+  final String? projectPath;
+
+  /// The template to start with for a new title.
+  final String? templateId;
 
   @override
   State<TitleEditorDialog> createState() => _TitleEditorDialogState();
@@ -66,7 +84,8 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
   void initState() {
     super.initState();
     _template =
-        templateById(widget.initial?.templateId ?? '') ?? titleTemplates.first;
+        templateById(widget.initial?.templateId ?? widget.templateId ?? '') ??
+        titleTemplates.first;
     _fields = {...?widget.initial?.fields};
     _duration = widget.initial?.duration ?? _template.defaultDuration;
     _placement =
@@ -155,7 +174,13 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
                           color: theme.colorScheme.outlineVariant,
                         ),
                       ),
-                      child: CustomPaint(painter: TitlePainter(_spec, t)),
+                      child: CustomPaint(
+                        painter: TitlePainter(
+                          _spec,
+                          t,
+                          projectPath: widget.projectPath,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -273,6 +298,13 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
           ],
           onChanged: (v) => setState(() => _fields[f.key] = v!),
         ),
+        FieldKind.image => _ImageField(
+          key: Key('field-${f.key}'),
+          label: f.label,
+          value: value,
+          projectPath: widget.projectPath,
+          onChanged: (v) => setState(() => _fields[f.key] = v),
+        ),
         FieldKind.color => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -314,6 +346,115 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
           ],
         ),
       },
+    );
+  }
+}
+
+/// A picture field: a thumbnail of the chosen picture, and buttons to
+/// choose or remove one. Picked files are copied into the project.
+class _ImageField extends StatefulWidget {
+  const _ImageField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.projectPath,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final String? projectPath;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_ImageField> createState() => _ImageFieldState();
+}
+
+class _ImageFieldState extends State<_ImageField> {
+  bool _busy = false;
+
+  Future<void> _pick() async {
+    final dir = widget.projectPath;
+    if (dir == null) return;
+    final file = await openFile(
+      acceptedTypeGroups: [
+        const XTypeGroup(
+          label: 'Pictures',
+          extensions: imageExtensions,
+          uniformTypeIdentifiers: ['public.image'],
+        ),
+      ],
+    );
+    if (file == null) return;
+    setState(() => _busy = true);
+    try {
+      final media = await importImage(file.path, dir);
+      widget.onChanged(media.path);
+    } on ImageImportException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final has = widget.value.isNotEmpty;
+    final path = has
+        ? ProjectStore.resolve(widget.value, widget.projectPath)
+        : '';
+    return Row(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: has && File(path).existsSync()
+              ? Image.file(File(path), fit: BoxFit.contain)
+              : Icon(Icons.image_outlined, color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.label, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: widget.projectPath == null || _busy
+                        ? null
+                        : _pick,
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_rounded, size: 18),
+                    label: Text(has ? 'Change' : 'Choose picture'),
+                  ),
+                  if (has)
+                    TextButton(
+                      onPressed: () => widget.onChanged(''),
+                      child: const Text('Remove'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

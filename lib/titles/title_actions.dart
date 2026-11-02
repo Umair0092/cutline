@@ -48,7 +48,7 @@ Future<MediaAsset> renderIntroMedia(
   final name = 'intro-${newId()}.mp4';
   final dir = Directory(p.join(workPath, ProjectStore.assetsDir))
     ..createSync(recursive: true);
-  await TitleRenderer(ffmpeg).renderClip(
+  await TitleRenderer(ffmpeg, projectPath: workPath).renderClip(
     spec,
     p.join(dir.path, name),
     width: f.width,

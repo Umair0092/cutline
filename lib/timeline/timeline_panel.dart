@@ -107,7 +107,11 @@ bool _runOrShow(WidgetRef ref, BuildContext context, EditCommand command) {
 Future<void> addTitleFlow(WidgetRef ref, BuildContext context) async {
   final project = ref.read(projectEditorProvider).project;
   final f = projectTitleFormat(project);
-  final edit = await showTitleEditor(context, aspectRatio: f.width / f.height);
+  final edit = await showTitleEditor(
+    context,
+    aspectRatio: f.width / f.height,
+    projectPath: ref.read(projectEditorProvider).workPath,
+  );
   if (edit == null || !context.mounted) return;
   final playhead = ref.read(previewProvider).position;
   await _withProgress(
@@ -135,6 +139,7 @@ Future<void> editTitleFlow(
     initial: spec,
     placement: titleId != null ? TitlePlacement.over : TitlePlacement.before,
     aspectRatio: f.width / f.height,
+    projectPath: ref.read(projectEditorProvider).workPath,
   );
   if (edit == null || edit.spec == spec || !context.mounted) return;
   await _withProgress(

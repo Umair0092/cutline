@@ -176,7 +176,7 @@ class Exporter {
     }
     for (final title in project.titles) {
       final path = p.join(work.path, '${title.id}.mov');
-      await TitleRenderer(ffmpeg).renderOverlay(
+      await TitleRenderer(ffmpeg, projectPath: projectPath).renderOverlay(
         title.spec,
         path,
         width: format.width,

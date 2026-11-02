@@ -1,11 +1,20 @@
 import 'package:path/path.dart' as p;
 
+import '../model/media_asset.dart';
 import '../model/project.dart';
 import '../model/title_item.dart';
 import '../model/voice_effect.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
 import '../transcript/transcript.dart';
+
+/// Pictures in the project by the short id the assistant uses: img1,
+/// img2… in the order they were added.
+Map<String, MediaAsset> imageAliases(Project project) => {
+  for (final (i, m)
+      in project.media.where((m) => m.kind == MediaKind.image).indexed)
+    'img${i + 1}': m,
+};
 
 /// Enough for well over an hour of speech.
 const maxTranscriptLines = 1500;
@@ -94,6 +103,16 @@ Map<String, dynamic> projectSummary(
             'start': _s(t.start),
             'end': _s(t.end),
             ..._titleInfo(t.spec),
+          },
+      ],
+    if (imageAliases(project) case final images when images.isNotEmpty)
+      'images': [
+        for (final MapEntry(key: id, value: m) in images.entries)
+          {
+            'id': id,
+            'name': ?m.name,
+            if (m.width > 0) 'size': '${m.width}x${m.height}',
+            'description': ?m.description,
           },
       ],
     if (!preferences.isEmpty)

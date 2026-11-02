@@ -153,7 +153,9 @@ class EditToolbox {
     'type': 'object',
     'description':
         'Template fields by key, e.g. {"title": "Weekly Rails Tips", '
-        '"accent": "#00B894", "font": "Bebas Neue"}. Colours are #RRGGBB.',
+        '"accent": "#00B894", "font": "Bebas Neue"}. Colours are #RRGGBB. '
+        'Picture fields (logo, photo) take an image id from "images", like '
+        '"img1".',
     'additionalProperties': {'type': 'string'},
   };
 
@@ -238,10 +240,12 @@ class EditToolbox {
     ),
     _tool(
       'add_title',
-      'Add an intro or title. "before" puts a full-screen card before the '
-          'video (only full-screen templates); "over" draws it over the '
-          'video from `start`. Fields you leave out use the user\'s saved '
-          'name and brand colour, then the template defaults.',
+      'Add an intro, title or picture clip. "before" puts a full-screen '
+          'card before the video, "after" at the end (only full-screen '
+          'templates); "over" draws it over the video from `start`. Fields '
+          'you leave out use the user\'s saved name and brand colour, then '
+          'the template defaults. To make a video from pictures, add one '
+          'photo-showcase per picture with "after", in order.',
       {
         'template': {
           'type': 'string',
@@ -249,13 +253,13 @@ class EditToolbox {
         },
         'placement': {
           'type': 'string',
-          'enum': ['before', 'over'],
+          'enum': ['before', 'after', 'over'],
         },
         'start': {
           ..._timeSchema,
           'description': 'For "over": timeline seconds where it appears.',
         },
-        'duration': {'type': 'number', 'minimum': 2, 'maximum': 10},
+        'duration': {'type': 'number', 'minimum': 2, 'maximum': 15},
         'fields': _fieldsSchema,
       },
       ['template', 'placement'],
@@ -268,7 +272,7 @@ class EditToolbox {
         'title_id': {'type': 'string'},
         'clip_id': {'type': 'string'},
         'fields': _fieldsSchema,
-        'duration': {'type': 'number', 'minimum': 2, 'maximum': 10},
+        'duration': {'type': 'number', 'minimum': 2, 'maximum': 15},
         'start': {
           ..._timeSchema,
           'description': 'New start, for titles over the video.',
@@ -678,7 +682,7 @@ class EditToolbox {
   ) async {
     final template = templateById(_string(input, 'template'))!;
     final placement = _string(input, 'placement');
-    final fields = _fields(input, template) ?? {};
+    final fields = _fields(input, template, project) ?? {};
     // Fill in the user's saved name and brand colour where not given.
     final prefs = context.preferences;
     if (prefs.yourName.isNotEmpty &&
@@ -696,7 +700,7 @@ class EditToolbox {
       templateId: template.id,
       fields: fields,
       duration: input.containsKey('duration')
-          ? _seconds(_number(input, 'duration', 2, 10))
+          ? _seconds(_number(input, 'duration', 2, 15))
           : template.defaultDuration,
     );
 
@@ -711,8 +715,8 @@ class EditToolbox {
         ),
       );
     }
-    if (placement != 'before') {
-      throw _BadInput('"placement" must be "before" or "over".');
+    if (placement != 'before' && placement != 'after') {
+      throw _BadInput('"placement" must be "before", "after" or "over".');
     }
     if (!template.fullFrame) {
       throw _BadInput(
@@ -731,7 +735,7 @@ class EditToolbox {
           sourceStart: Duration.zero,
           sourceEnd: media.duration,
         ),
-        index: 0,
+        index: placement == 'before' ? 0 : null,
       ),
     ]);
   }
@@ -750,9 +754,9 @@ class EditToolbox {
     TitleSpec merge(TitleSpec spec) {
       final template = templateById(spec.templateId)!;
       return spec.copyWith(
-        fields: {...spec.fields, ...?_fields(input, template)},
+        fields: {...spec.fields, ...?_fields(input, template, project)},
         duration: input.containsKey('duration')
-            ? _seconds(_number(input, 'duration', 2, 10))
+            ? _seconds(_number(input, 'duration', 2, 15))
             : spec.duration,
       );
     }
@@ -1306,6 +1310,7 @@ class EditToolbox {
   Map<String, String>? _fields(
     Map<String, dynamic> input,
     TitleTemplate template,
+    Project project,
   ) {
     final raw = input['fields'];
     if (raw == null) return null;
@@ -1324,6 +1329,32 @@ class EditToolbox {
       if (value is! String) throw _BadInput('Field "$key" must be a string.');
       if (field.kind == FieldKind.color && parseHexColor(value) == null) {
         throw _BadInput('Field "$key" must be a colour like #6C5CE7.');
+      }
+      if (field.kind == FieldKind.image) {
+        if (value.isEmpty) {
+          out[key] = '';
+          continue;
+        }
+        final aliases = imageAliases(project);
+        final media =
+            aliases[value.trim().toLowerCase()] ??
+            project.media
+                .where(
+                  (m) =>
+                      m.kind == MediaKind.image &&
+                      (m.id == value || m.path == value),
+                )
+                .firstOrNull;
+        if (media == null) {
+          throw _BadInput(
+            aliases.isEmpty
+                ? 'There are no pictures yet. Ask the user to attach one.'
+                : 'Field "$key" must be one of: '
+                      '${aliases.keys.join(', ')}.',
+          );
+        }
+        out[key] = media.path;
+        continue;
       }
       if (field.kind == FieldKind.font && !titleFonts.contains(value)) {
         throw _BadInput(

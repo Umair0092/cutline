@@ -52,7 +52,9 @@ class AddMedia extends EditCommand {
   final MediaAsset asset;
 
   @override
-  String get label => 'Add media';
+  String get label => asset.kind == MediaKind.image
+      ? 'Add picture "${asset.name ?? 'picture'}"'
+      : 'Add media';
 
   @override
   Project apply(Project project) {

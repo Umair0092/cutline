@@ -4,15 +4,18 @@ import '../export/exporter.dart';
 import '../model/title_item.dart';
 import '../render/frame_pipe.dart';
 import 'templates.dart';
+import 'title_images.dart';
 
 /// Draws one frame of [spec] at [t] seconds into an image.
 Future<ui.Image> renderTitleFrame(
   TitleSpec spec,
   int width,
   int height,
-  double t,
-) {
+  double t, {
+  String? projectPath,
+}) async {
   final template = templateById(spec.templateId)!;
+  await TitleImages.instance.ensure(titleImagePaths(spec, projectPath));
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   template.paint(
@@ -20,7 +23,7 @@ Future<ui.Image> renderTitleFrame(
     ui.Size(width.toDouble(), height.toDouble()),
     t,
     spec.duration.inMicroseconds / 1e6,
-    TitleValues(template, spec.fields),
+    titleValues(spec, projectPath),
   );
   return recorder.endRecording().toImage(width, height);
 }
@@ -28,9 +31,12 @@ Future<ui.Image> renderTitleFrame(
 /// Renders a title to a video file by drawing every frame and piping the
 /// raw pixels into FFmpeg.
 class TitleRenderer {
-  TitleRenderer(this.ffmpeg);
+  TitleRenderer(this.ffmpeg, {this.projectPath});
 
   final String ffmpeg;
+
+  /// Where image fields' relative paths are found.
+  final String? projectPath;
 
   /// An H.264 MP4 with silent audio, for an intro placed before the video.
   Future<void> renderClip(
@@ -98,6 +104,8 @@ class TitleRenderer {
     }
     final total = spec.duration.inMicroseconds / 1e6;
     final size = ui.Size(width.toDouble(), height.toDouble());
+    await TitleImages.instance.ensure(titleImagePaths(spec, projectPath));
+    final values = titleValues(spec, projectPath);
     await pipeFramesToFfmpeg(
       ffmpeg: ffmpeg,
       outputPath: outputPath,
@@ -107,13 +115,8 @@ class TitleRenderer {
       frames: (total * fps).round(),
       extraInputs: extraInputs,
       output: output,
-      paint: (canvas, i) async => template.paint(
-        canvas,
-        size,
-        i / fps,
-        total,
-        TitleValues(template, spec.fields),
-      ),
+      paint: (canvas, i) async =>
+          template.paint(canvas, size, i / fps, total, values),
     );
   }
 }

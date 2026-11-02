@@ -1,7 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+
+import '../editing/commands.dart';
+import '../media/image_import.dart';
+import 'vision.dart';
 
 import '../editing/edit_command.dart';
 import '../memes/meme_actions.dart';
@@ -40,6 +46,7 @@ class ChatEntry {
     this.memes = const [],
     this.suggestion,
     this.tracks = const [],
+    this.attachments = const [],
   });
 
   factory ChatEntry.fromJson(Map<String, dynamic> json) => ChatEntry(
@@ -61,6 +68,9 @@ class ChatEntry {
     suggestion: json['suggestion'] == null
         ? null
         : MemeSuggestion.fromJson(json['suggestion'] as Map<String, dynamic>),
+    attachments: [
+      for (final a in json['attachments'] as List<dynamic>? ?? const []) '$a',
+    ],
     tracks: [
       for (final t in json['tracks'] as List<dynamic>? ?? const [])
         (
@@ -88,6 +98,10 @@ class ChatEntry {
   /// uses.
   final List<(String, Track)> tracks;
 
+  /// For [ChatRole.user]: files sent with the message (pictures are shown
+  /// as thumbnails).
+  final List<String> attachments;
+
   ChatEntry copyWith({bool? undone, MemeSuggestion? suggestion}) => ChatEntry(
     role: role,
     text: text,
@@ -97,6 +111,7 @@ class ChatEntry {
     memes: memes,
     suggestion: suggestion ?? this.suggestion,
     tracks: tracks,
+    attachments: attachments,
   );
 
   Map<String, dynamic> toJson() => {
@@ -111,6 +126,7 @@ class ChatEntry {
           {'choice': choice, 'meme': meme.toStoredJson()},
       ],
     if (suggestion != null) 'suggestion': suggestion!.toJson(),
+    if (attachments.isNotEmpty) 'attachments': attachments,
     if (tracks.isNotEmpty)
       'tracks': [
         for (final (choice, track) in tracks)
@@ -236,7 +252,7 @@ You are the editing assistant inside Cutline, a video editor. The user talks to 
 
 Each user message starts with a <project_state> block: the current project as JSON. Times are timeline seconds. If the video has been transcribed, "transcript" lists what is said and when (already on the timeline, after cuts), so you can find moments by what's said: "remove the part where I say um, let me restart" means find that line and cut its start to end. The main track is a list of clips that play back to back; cutting closes the gap, so times after a cut move earlier. Tool results include the updated project; use those times for any further edits in the same turn.
 
-Titles and intros: templates are clean-card (title + subtitle card), bold-kinetic (big words popping in, plus a name), lower-third (name and role in a bar, see-through, only "over" the video) and logo-reveal (initials in a circle, then name and subtitle). "Add an intro" usually means a full-screen card "before" the video; a name tag while someone talks is a lower-third "over" the video. "you" in the project state holds the user's saved name and brand colour; use them, and if an intro needs a name you don't have, ask for it. Titles over the video are listed in "titles"; intro clips have "intro" on their clip. For "make it shorter", "use blue", or "change the subtitle", call edit_title with only what changes.
+Titles and intros: templates are clean-card (title + subtitle card), bold-kinetic (big words popping in, plus a name), lower-third (name and role in a bar, see-through, only "over" the video), logo-reveal (initials or a logo in a circle, then name and subtitle) and the picture templates below. "Add an intro" usually means a full-screen card "before" the video; a name tag while someone talks is a lower-third "over" the video. "you" in the project state holds the user's saved name and brand colour; use them, and if an intro needs a name you don't have, ask for it. Titles over the video are listed in "titles"; intro clips have "intro" on their clip. For "make it shorter", "use blue", or "change the subtitle", call edit_title with only what changes.
 
 Memes: add_meme finds and places a meme in one step. "When I talk about deadlines" means use "phrase" with the words from the transcript (or the matching line's start). "Bottom right" is a position; "small" or "big" is a size. If the user names a meme loosely and several could fit, call search_memes and ask which one; they can see the numbered thumbnails. For "suggest memes for this video", call suggest_memes with up to 5 good moments; the user accepts or rejects each one on cards that already show the meme, time and reason, so don't list them again: just say how many you suggested. Search results also show as thumbnails, so don't list those either. "overlays" in the project state lists memes already on the video.
 
@@ -244,11 +260,17 @@ Voiceovers: add_voiceover writes and speaks a script onto the voiceover track. W
 
 Music and sounds: add_music puts background music under the whole video (or a part) from a free Creative Commons library; search it by mood, genre or instrument, never by song or artist name, because famous songs can't be used. If the user names a song, say you can't use copyrighted songs and offer something with the same feel (or they can attach their own file). Pick music that fits the video's mood from the transcript and name. Music is evened out and lowered automatically when anyone talks, so the default level suits most videos; raise "level" for a montage without talking, lower it if the user says the music is too loud. "mix" in the project state has the track levels; for "make my voice louder" raise "video" (their voice is in the video) or "voiceover" if they mean the voiceover, and for "the music is too loud" lower "music" with set_audio_mix. add_sound adds short effects (whoosh, ding, applause) at a moment. Search results show as cards the user can play, so don't list them.
 
+Pictures: the user can attach pictures; "images" in the project state lists them (img1, img2…) with what each shows, and new ones arrive in an <attached> block. Picture templates take an image id in their "logo" or "photo" field: logo-spin (the logo spins in and pops with a ring of light), logo-pop (the logo drops in and bounces, with confetti; playful), logo-shine (cinematic: sharpens out of a blur, a light sweeps across it), logo-reveal (the logo, or initials, in a circle) and logo-corner (a small watermark "over" the video, fields corner and opacity). For "make an intro with my logo", pick the style that fits what they ask (spin by default), put it "before", fill in the name from "you" or the picture's text, and use the logo's main colour as the accent unless they say otherwise; if the logo is dark, use a light background. To make a video from pictures ("make a video from these photos"), add one photo-showcase per picture with placement "after", in order, about 4-6 seconds each, with short captions if they help; vary "motion" (zoom-in, zoom-out, pan). This works even when there's no video yet. Attached audio files (file1…) can be used as music or sounds.
+
 Voice effects: "make my voice deeper" means set_voice_effect on target "video" (the user's voice is in the main video), about -2 semitones for "a bit", -4 for "much". Effects show under "effect" on clips and audio.
 
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
 
 Don't write anything before or between tool calls. When all edits are done, reply once, in one short sentence saying what changed. Use plain text, no markdown. Write times as minutes:seconds, like 0:15 or 1:15.5.''';
+
+bool _isImage(String path) => imageExtensions.contains(
+  p.extension(path).replaceFirst('.', '').toLowerCase(),
+);
 
 /// How many tool round trips one message may take before stopping.
 const maxToolRounds = 8;
@@ -300,9 +322,16 @@ class ChatController extends Notifier<ChatState> {
 
   void clear() => load(const ChatState());
 
-  Future<void> send(String text) async {
-    final message = text.trim();
-    if (message.isEmpty || state.busy) return;
+  /// Sends a message, with optional [attachments]: pictures (copied into
+  /// the project and described to the assistant) and audio files (usable as
+  /// music or sounds).
+  Future<void> send(String text, {List<String> attachments = const []}) async {
+    var message = text.trim();
+    if ((message.isEmpty && attachments.isEmpty) || state.busy) return;
+    if (message.isEmpty) {
+      message =
+          'I attached ${attachments.length == 1 ? 'a file' : 'some files'}.';
+    }
     final key = await ref.read(apiKeyProvider.future);
     if (key == null) {
       _notice('Add an API key in Settings to use the assistant.');
@@ -368,6 +397,82 @@ class ChatController extends Notifier<ChatState> {
             ),
     );
     final before = state;
+    state = state.copyWith(
+      entries: [
+        ...state.entries,
+        ChatEntry(
+          role: ChatRole.user,
+          text: message,
+          attachments: [
+            for (final a in attachments)
+              if (_isImage(a)) a else p.basename(a),
+          ],
+        ),
+      ],
+      streamingText: () =>
+          attachments.any(_isImage) ? 'Looking at your picture…' : '',
+      busy: true,
+    );
+
+    final provider = await ref
+        .read(aiProviderProvider.future)
+        .catchError((Object _) => AiProvider.groq);
+    var working = start;
+    final commands = <EditCommand>[];
+    final attachedLines = <String>[];
+    for (final path in attachments) {
+      if (_isImage(path)) {
+        if (workPath == null) continue;
+        try {
+          var media = await importImage(path, workPath);
+          String? description;
+          var transparent = false;
+          try {
+            final prepared = await prepareImage(p.join(workPath, media.path));
+            transparent = prepared.transparent;
+            description = await ref
+                .read(imageDescriberFactoryProvider)(provider, key)
+                .describe(prepared.png)
+                .timeout(const Duration(seconds: 50));
+          } on Object catch (e) {
+            debugPrint('Image description failed: $e');
+          }
+          media = media.copyWith(
+            description: [
+              ?description,
+              if (transparent) 'It has a see-through background.',
+            ].join(' ').trim(),
+          );
+          final add = AddMedia(media);
+          working = add.apply(working);
+          commands.add(add);
+          final alias = imageAliases(working).entries
+              .firstWhere((e) => e.value.id == media.id)
+              .key;
+          attachedLines.add(
+            '$alias: picture "${media.name}", ${media.width}x${media.height}'
+            '${transparent ? ', see-through background' : ''}. '
+            '${description == null ? 'Couldn\'t look at it.' : 'It shows: $description'}',
+          );
+        } on ImageImportException catch (e) {
+          attachedLines.add('${p.basename(path)}: ${e.message}');
+        }
+      } else {
+        final n = _trackChoices.keys.where((k) => k.startsWith('file')).length;
+        final id = 'file${n + 1}';
+        _trackChoices[id] = Track(
+          id: 'file-${path.hashCode.toUnsigned(32)}',
+          title: p.basenameWithoutExtension(path),
+          source: path,
+        );
+        attachedLines.add(
+          '$id: audio file "${p.basename(path)}" (use as "music" in '
+          'add_music or "sound" in add_sound)',
+        );
+      }
+      if (turn != _turn) return; // stopped
+    }
+
     final turnHistory = <Map<String, dynamic>>[
       {
         'role': 'user',
@@ -376,28 +481,21 @@ class ChatController extends Notifier<ChatState> {
             'type': 'text',
             'text':
                 '<project_state>\n'
-                '${jsonEncode(projectSummary(start, playhead: playhead, transcript: transcript, preferences: prefs))}\n'
+                '${jsonEncode(projectSummary(working, playhead: playhead, transcript: transcript, preferences: prefs))}\n'
                 '</project_state>',
           },
+          if (attachedLines.isNotEmpty)
+            {
+              'type': 'text',
+              'text': '<attached>\n${attachedLines.join('\n')}\n</attached>',
+            },
           {'type': 'text', 'text': message},
         ],
       },
     ];
-    state = state.copyWith(
-      entries: [
-        ...state.entries,
-        ChatEntry(role: ChatRole.user, text: message),
-      ],
-      streamingText: () => '',
-      busy: true,
-    );
+    state = state.copyWith(streamingText: () => '');
 
-    final provider = await ref
-        .read(aiProviderProvider.future)
-        .catchError((Object _) => AiProvider.groq);
     final client = ref.read(assistantClientFactoryProvider)(provider, key);
-    var working = start;
-    final commands = <EditCommand>[];
     Duration? seekTo;
     final shownMemes = <(String, Meme)>[];
     final shownTracks = <(String, Track)>[];

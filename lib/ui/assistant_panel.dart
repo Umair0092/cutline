@@ -1,4 +1,12 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+
+import '../media/image_import.dart';
+import '../music/music_library.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,6 +37,9 @@ class AssistantPanel extends ConsumerStatefulWidget {
 class _AssistantPanelState extends ConsumerState<AssistantPanel> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+
+  /// Files picked to go with the next message.
+  final _attachments = <String>[];
   late final _focus = FocusNode(onKeyEvent: _onKey);
 
   @override
@@ -52,9 +63,35 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
 
   void _send([String? text]) {
     final message = text ?? _input.text;
-    if (message.trim().isEmpty || ref.read(chatProvider).busy) return;
-    _input.clear();
-    ref.read(chatProvider.notifier).send(message);
+    final files = text == null ? [..._attachments] : const <String>[];
+    if ((message.trim().isEmpty && files.isEmpty) ||
+        ref.read(chatProvider).busy) {
+      return;
+    }
+    if (text == null) {
+      _input.clear();
+      setState(_attachments.clear);
+    }
+    ref.read(chatProvider.notifier).send(message, attachments: files);
+  }
+
+  Future<void> _attach() async {
+    final files = await openFiles(
+      acceptedTypeGroups: [
+        const XTypeGroup(
+          label: 'Pictures and audio',
+          extensions: [...imageExtensions, ...audioExtensions],
+          uniformTypeIdentifiers: ['public.image', 'public.audio'],
+        ),
+      ],
+    );
+    if (files.isEmpty || !mounted) return;
+    setState(() {
+      for (final f in files) {
+        if (!_attachments.contains(f.path)) _attachments.add(f.path);
+      }
+    });
+    _focus.requestFocus();
   }
 
   void _scrollToEnd() {
@@ -143,11 +180,22 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
                   ),
           ),
           Divider(height: 1, color: colors.outlineVariant),
+          if (_attachments.isNotEmpty)
+            _PendingAttachments(
+              files: _attachments,
+              onRemove: (f) => setState(() => _attachments.remove(f)),
+            ),
           Padding(
             padding: const EdgeInsets.all(8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                IconButton(
+                  key: const Key('chat-attach'),
+                  tooltip: 'Attach a picture or audio',
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  onPressed: hasKey && !chat.busy ? _attach : null,
+                ),
                 Expanded(
                   child: TextField(
                     key: const Key('chat-input'),
@@ -220,11 +268,128 @@ class _Bubble extends StatelessWidget {
               : colors.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: SelectableText(
-          entry.text,
-          style: TextStyle(
-            color: isUser ? colors.onPrimaryContainer : colors.onSurface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (entry.attachments.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
+                children: [
+                  for (final a in entry.attachments) _AttachmentThumb(a),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
+            SelectableText(
+              entry.text,
+              style: TextStyle(
+                color: isUser ? colors.onPrimaryContainer : colors.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A sent picture (thumbnail) or audio file (its name).
+class _AttachmentThumb extends StatelessWidget {
+  const _AttachmentThumb(this.path, {this.size = 72});
+
+  final String path;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
+    if (imageExtensions.contains(ext) && File(path).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          File(path),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          cacheWidth: (size * 2).round(),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.music_note_rounded, size: 16, color: colors.primary),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              p.basename(path),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Files waiting to be sent with the next message, each with a remove
+/// button.
+class _PendingAttachments extends StatelessWidget {
+  const _PendingAttachments({required this.files, required this.onRemove});
+
+  final List<String> files;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final f in files)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _AttachmentThumb(f, size: 56),
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: InkWell(
+                      key: Key('remove-attachment-${p.basename(f)}'),
+                      customBorder: const CircleBorder(),
+                      onTap: () => onRemove(f),
+                      child: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: colors.inverseSurface,
+                        child: Icon(
+                          Icons.close,
+                          size: 12,
+                          color: colors.onInverseSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
