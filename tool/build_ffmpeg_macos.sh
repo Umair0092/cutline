@@ -61,7 +61,8 @@ for tool in ffmpeg ffprobe; do
 done
 
 # Fail if anything outside the OS slipped in.
-if otool -L "$OUT/ffmpeg" | tail -n +2 | grep -vE '/System/Library/|/usr/lib/'; then
+# (A universal binary lists each architecture under a "...:" header line.)
+if otool -L "$OUT/ffmpeg" | grep -vE ':$|/System/Library/|/usr/lib/'; then
   echo "ffmpeg links to non-system libraries" >&2
   exit 1
 fi

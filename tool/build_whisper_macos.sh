@@ -44,7 +44,7 @@ done
 
 lipo -create "${built[@]}" -output "$OUT/whisper-cli"
 cp "$SRC/LICENSE" "$OUT/LICENSE.txt"
-if otool -L "$OUT/whisper-cli" | tail -n +2 | grep -vE '/System/Library/|/usr/lib/'; then
+if otool -L "$OUT/whisper-cli" | grep -vE ':$|/System/Library/|/usr/lib/'; then
   echo "whisper-cli links to non-system libraries" >&2
   exit 1
 fi
