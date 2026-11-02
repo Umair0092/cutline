@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'duration_converter.dart';
+import 'speech_spec.dart';
 import 'title_item.dart';
 
 part 'media_asset.freezed.dart';
@@ -29,6 +30,10 @@ abstract class MediaAsset with _$MediaAsset {
     /// Set when the app made this file from a title template (an intro
     /// placed before the video), so it can be re-made after edits.
     TitleSpec? title,
+
+    /// Set when the app made this file by text-to-speech (an AI
+    /// voiceover line), so it can be re-made with new words or a new voice.
+    SpeechSpec? speech,
   }) = _MediaAsset;
 
   factory MediaAsset.fromJson(Map<String, dynamic> json) =>

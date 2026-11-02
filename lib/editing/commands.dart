@@ -535,12 +535,14 @@ class RemoveTitle extends EditCommand {
 /// Points a generated intro at a newly rendered file (after its text,
 /// colours or length changed). Clips using it are stretched to the new
 /// length.
+/// Swaps a file the app made (an intro, a voiceover line) for a re-made
+/// one with the same id. Clips and audio using it now play all of it.
 class ReplaceGeneratedMedia extends EditCommand {
-  const ReplaceGeneratedMedia(this.updated);
+  const ReplaceGeneratedMedia(this.updated, {this.label = 'Edit intro'});
   final MediaAsset updated;
 
   @override
-  String get label => 'Edit intro';
+  final String label;
 
   @override
   Project apply(Project project) {
@@ -558,6 +560,20 @@ class ReplaceGeneratedMedia extends EditCommand {
                 )
               : c,
       ],
+      audio: [
+        for (final a in project.audio)
+          a.mediaId == updated.id ? _refit(a, updated.duration) : a,
+      ],
+    );
+  }
+
+  static AudioItem _refit(AudioItem a, Duration length) {
+    final half = length ~/ 2;
+    return a.copyWith(
+      sourceStart: Duration.zero,
+      sourceEnd: length,
+      fadeIn: a.fadeIn > half ? half : a.fadeIn,
+      fadeOut: a.fadeOut > half ? half : a.fadeOut,
     );
   }
 }

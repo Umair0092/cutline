@@ -375,7 +375,8 @@ class TracksPainter extends CustomPainter {
         canvas,
         rect,
         colors.audio,
-        '${a.role.name[0].toUpperCase()}${a.role.name.substring(1)}',
+        project.mediaById(a.mediaId)?.speech?.text ??
+            '${a.role.name[0].toUpperCase()}${a.role.name.substring(1)}',
         selected: a.id == selectedAudioId,
       );
     }

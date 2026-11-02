@@ -65,6 +65,12 @@ Map<String, dynamic> projectSummary(
             'role': a.role.name,
             'start': _s(a.start),
             'end': _s(a.end),
+            if (project.mediaById(a.mediaId)?.speech case final speech?) ...{
+              'text': speech.text,
+              'engine': speech.engine.name,
+              if (speech.voice.isNotEmpty) 'voice': speech.voice,
+              if (speech.speed != 1) 'speed': speech.speed,
+            },
           },
       ],
     if (project.titles.isNotEmpty)

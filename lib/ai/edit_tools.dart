@@ -10,6 +10,9 @@ import '../memes/meme_search.dart';
 import '../model/overlay_item.dart';
 import '../settings/preferences.dart';
 import '../transcript/transcript.dart';
+import '../model/speech_spec.dart';
+import '../voice/tts.dart';
+import '../voice/voiceover_actions.dart';
 import 'meme_tools.dart';
 import '../titles/templates.dart';
 import 'project_summary.dart';
@@ -24,6 +27,8 @@ class ToolContext {
     this.memeCommands,
     this.memeChoices,
     this.transcript = const [],
+    this.voiceover,
+    this.remakeLine,
   });
 
   /// Renders an intro clip for "before the video" titles. Null where
@@ -58,6 +63,25 @@ class ToolContext {
 
   /// What's said and when, on the timeline, for "when I talk about X".
   final List<TranscriptLine> transcript;
+
+  /// Speaks script lines and returns the commands that place them.
+  final Future<List<EditCommand>> Function(
+    Project project,
+    List<ScriptLine> lines,
+    VoiceEngine engine,
+    String voice,
+    double speed,
+    Duration from,
+  )?
+  voiceover;
+
+  /// Re-makes one voiceover line (an audio item made by text-to-speech).
+  final Future<EditCommand> Function(
+    Project project,
+    String audioId,
+    SpeechSpec spec,
+  )?
+  remakeLine;
 }
 
 /// What happened when the assistant called a tool.
@@ -317,6 +341,58 @@ class EditToolbox {
       ['suggestions'],
     ),
     _tool(
+      'add_voiceover',
+      'Write a voiceover and have it spoken onto the voiceover track. Each '
+          'line becomes its own clip (keep lines to a sentence or two). Time '
+          'a line with "phrase" (words said in the transcript, e.g. the part '
+          'it explains) or "start"; lines without either follow the previous '
+          'one. The video\'s own sound is lowered under it on export.',
+      {
+        'lines': {
+          'type': 'array',
+          'minItems': 1,
+          'maxItems': 20,
+          'items': {
+            'type': 'object',
+            'properties': {
+              'text': {'type': 'string'},
+              'phrase': {'type': 'string'},
+              'start': _timeSchema,
+            },
+            'required': ['text'],
+            'additionalProperties': false,
+          },
+        },
+        'engine': {
+          'type': 'string',
+          'enum': [for (final e in VoiceEngine.values) e.name],
+          'description':
+              'system: the computer\'s voices (default). groq: more '
+              'natural voices.',
+        },
+        'voice': {
+          'type': 'string',
+          'description':
+              'For groq: ${groqVoices.join(', ')}. Leave out for the default.',
+        },
+        'speed': {'type': 'number', 'minimum': 0.75, 'maximum': 1.5},
+      },
+      ['lines'],
+    ),
+    _tool(
+      'remake_voiceover_line',
+      'Change one voiceover line (audio_id from "audio" with "text") and '
+          'speak it again: new words, voice or speed. Only what you pass '
+          'changes; the other lines stay.',
+      {
+        'audio_id': {'type': 'string'},
+        'text': {'type': 'string'},
+        'voice': {'type': 'string'},
+        'speed': {'type': 'number', 'minimum': 0.75, 'maximum': 1.5},
+      },
+      ['audio_id'],
+    ),
+    _tool(
       'seek',
       'Move the playhead to a time so the user can look at that moment. '
           'Not an edit.',
@@ -427,6 +503,11 @@ class EditToolbox {
       'remove_title' => (RemoveTitle(_string(input, 'title_id')), null),
       'seek' => (null, _clampToProject(_time(input, 'time'), project)),
       'add_meme' => (await _addMeme(input, project, context), null),
+      'add_voiceover' => (await _addVoiceover(input, project, context), null),
+      'remake_voiceover_line' => (
+        await _remakeLine(input, project, context),
+        null,
+      ),
       _ => throw _BadInput('Unknown tool "$name".'),
     };
   }
@@ -721,6 +802,95 @@ class EditToolbox {
             '${problems.isEmpty ? '' : '; the skipped ones had no meme'}.',
       }),
     );
+  }
+
+  Future<EditCommand> _addVoiceover(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final make = context.voiceover;
+    if (make == null) throw _BadInput('Voiceovers aren\'t available here.');
+    final raw = input['lines'];
+    if (raw is! List || raw.isEmpty) {
+      throw _BadInput('"lines" must be a list of 1 to 20 lines.');
+    }
+    final lines = <ScriptLine>[];
+    for (final item in raw) {
+      if (item is! Map<String, dynamic>) {
+        throw _BadInput('Each line must be an object with "text".');
+      }
+      final text = _string(item, 'text');
+      Duration? start;
+      if (item.containsKey('phrase') || item.containsKey('start')) {
+        start = _memeStart(item, context);
+      }
+      lines.add((text: text, start: start));
+    }
+    final engine = VoiceEngine.values.byName(
+      _enum(input, 'engine', [
+        for (final e in VoiceEngine.values) e.name,
+      ], VoiceEngine.system.name),
+    );
+    final voice = input['voice'];
+    if (voice != null && voice is! String) {
+      throw _BadInput('"voice" must be a string.');
+    }
+    if (engine == VoiceEngine.groq &&
+        voice != null &&
+        !groqVoices.contains(voice)) {
+      throw _BadInput('Groq voices are: ${groqVoices.join(', ')}.');
+    }
+    final speed = input.containsKey('speed')
+        ? _number(input, 'speed', 0.75, 1.5)
+        : 1.0;
+    try {
+      final commands = await make(
+        project,
+        lines,
+        engine,
+        (voice as String?) ?? '',
+        speed,
+        context.playhead,
+      );
+      return Batch('AI voiceover', commands);
+    } on SpeechException catch (e) {
+      throw _BadInput(e.message);
+    }
+  }
+
+  Future<EditCommand> _remakeLine(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final remake = context.remakeLine;
+    if (remake == null) throw _BadInput('Voiceovers aren\'t available here.');
+    final id = _string(input, 'audio_id');
+    final item = project.audio.where((a) => a.id == id).firstOrNull;
+    final spec = item == null ? null : project.mediaById(item.mediaId)?.speech;
+    if (spec == null) {
+      throw _BadInput('"$id" isn\'t a generated voiceover line.');
+    }
+    final voice = input['voice'];
+    if (voice != null && voice is! String) {
+      throw _BadInput('"voice" must be a string.');
+    }
+    try {
+      return await remake(
+        project,
+        id,
+        spec.copyWith(
+          text: input.containsKey('text') ? _string(input, 'text') : spec.text,
+          voice: (voice as String?) ?? spec.voice,
+          speed: input.containsKey('speed')
+              ? _number(input, 'speed', 0.75, 1.5)
+              : spec.speed,
+        ),
+      );
+    } on SpeechException catch (e) {
+      throw _BadInput(e.message);
+    }
   }
 
   /// Checks `fields` against the template: known keys, valid colours and

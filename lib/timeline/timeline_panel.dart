@@ -17,6 +17,7 @@ import '../model/media_asset.dart';
 import '../model/title_item.dart';
 import '../audio/audio_widgets.dart';
 import '../audio/recording.dart';
+import '../voice/voiceover_dialog.dart';
 import '../memes/meme_actions.dart';
 import '../memes/meme_search.dart';
 import '../overlays/overlay_actions.dart';
@@ -253,6 +254,12 @@ class _Toolbar extends ConsumerWidget {
                     ref.read(recordingProvider).open ? rec.hide() : rec.show();
                   }
                 : null,
+          ),
+          IconButton(
+            key: const Key('ai-voiceover'),
+            tooltip: 'AI voiceover from a script',
+            icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+            onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
           ),
           if (hasClips) const AudioMixButton(),
           const Spacer(),

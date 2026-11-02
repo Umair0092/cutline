@@ -7,6 +7,7 @@ import '../editing/project_editor.dart';
 import '../timeline/timeline_state.dart';
 import '../ui/commit_slider.dart';
 import '../ui/time_format.dart';
+import '../voice/voiceover_dialog.dart';
 import 'recording.dart';
 
 void _run(BuildContext context, WidgetRef ref, EditCommand command) {
@@ -140,6 +141,7 @@ class AudioInspector extends ConsumerWidget {
     final project = ref.watch(projectEditorProvider.select((s) => s.project));
     final a = project.audio.where((a) => a.id == id).firstOrNull;
     if (a == null) return const SizedBox.shrink();
+    final speech = project.mediaById(a.mediaId)?.speech;
     final colors = Theme.of(context).colorScheme;
     final maxFade = a.duration.inMilliseconds / 2000;
     return Container(
@@ -157,12 +159,26 @@ class AudioInspector extends ConsumerWidget {
             children: [
               Icon(Icons.graphic_eq, size: 16, color: colors.primary),
               const SizedBox(width: 6),
-              Text(
-                '${a.role.name[0].toUpperCase()}${a.role.name.substring(1)} · '
-                '${formatPlayerTime(a.duration)}',
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Text(
+                  speech != null
+                      ? '"${speech.text}"'
+                      : '${a.role.name[0].toUpperCase()}'
+                            '${a.role.name.substring(1)} · '
+                            '${formatPlayerTime(a.duration)}',
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
+          if (speech != null)
+            TextButton.icon(
+              key: const Key('edit-voice-line'),
+              onPressed: () => showEditLineDialog(context, a.id),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit line'),
+            ),
           CommitSlider(
             key: Key('audio-volume-${a.id}'),
             icon: Icons.volume_up,

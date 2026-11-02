@@ -7,6 +7,8 @@ import '../editing/edit_command.dart';
 import '../memes/meme_actions.dart';
 import '../memes/meme_search.dart';
 import '../model/overlay_item.dart';
+import '../voice/tts.dart';
+import '../voice/voiceover_actions.dart';
 import 'meme_tools.dart';
 import '../editing/project_editor.dart';
 import '../model/media_asset.dart';
@@ -219,6 +221,8 @@ Titles and intros: templates are clean-card (title + subtitle card), bold-kineti
 
 Memes: add_meme finds and places a meme in one step. "When I talk about deadlines" means use "phrase" with the words from the transcript (or the matching line's start). "Bottom right" is a position; "small" or "big" is a size. If the user names a meme loosely and several could fit, call search_memes and ask which one; they can see the numbered thumbnails. For "suggest memes for this video", call suggest_memes with up to 5 good moments; the user accepts or rejects each one on cards that already show the meme, time and reason, so don't list them again: just say how many you suggested. Search results also show as thumbnails, so don't list those either. "overlays" in the project state lists memes already on the video.
 
+Voiceovers: add_voiceover writes and speaks a script onto the voiceover track. Write it like a person talking: short, plain sentences, one or two per line. To explain a part of the video, time the line with "phrase" (words said there) or "start". Use the system engine unless the user asks for a more natural voice or a Groq voice by name. To change one line ("say the second line slower", "fix the wording"), use remake_voiceover_line on just that line.
+
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
 
 Don't write anything before or between tool calls. When all edits are done, reply once, in one short sentence saying what changed. Use plain text, no markdown. Write times as minutes:seconds, like 0:15 or 1:15.5.''';
@@ -303,6 +307,28 @@ class ChatController extends Notifier<ChatState> {
                   animation: animation,
                 ),
       memeChoices: _memeChoices,
+      voiceover: workPath == null
+          ? null
+          : (project, lines, engine, voice, speed, from) async =>
+                voiceoverCommands(
+                  project: project,
+                  workPath: workPath,
+                  speaker: await ref.read(speakerFactoryProvider)(engine),
+                  lines: lines,
+                  engine: engine,
+                  voice: voice,
+                  speed: speed,
+                  from: from,
+                ),
+      remakeLine: workPath == null
+          ? null
+          : (project, audioId, spec) async => regenerateLine(
+              project: project,
+              workPath: workPath,
+              speaker: await ref.read(speakerFactoryProvider)(spec.engine),
+              audioId: audioId,
+              spec: spec,
+            ),
     );
     final before = state;
     final turnHistory = <Map<String, dynamic>>[
