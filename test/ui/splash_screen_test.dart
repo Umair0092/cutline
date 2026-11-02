@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cutline/ai/api_key_store.dart';
 import 'package:cutline/app.dart';
 import 'package:cutline/preview/preview_controller.dart';
 import 'package:cutline/startup/startup.dart';
+import 'package:cutline/transcript/transcription_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,13 +29,16 @@ void main() {
           previewProvider.overrideWithValue(FakePreviewController()),
           startupTasksProvider.overrideWithValue(tasks),
           splashMinimumProvider.overrideWithValue(minimum),
+          supportDirProvider.overrideWith(
+            (_) async => Directory.systemTemp.createTempSync('cutline_s').path,
+          ),
         ],
         child: const CutlineApp(showSplash: true),
       ),
     );
   }
 
-  testWidgets('shows the splash with progress, then fades into the editor', (
+  testWidgets('shows the splash with progress, then fades into the dashboard', (
     tester,
   ) async {
     await pumpApp(tester, [
@@ -52,7 +57,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('splash')), findsNothing);
-    expect(find.text('Drop a video here'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard')), findsOneWidget);
   });
 
   testWidgets('a missing tool is mentioned once the editor opens', (

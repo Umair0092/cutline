@@ -216,12 +216,13 @@ class _Toolbar extends ConsumerWidget {
       mainAxisSize: narrow ? MainAxisSize.min : MainAxisSize.max,
       children: [
         const SizedBox(width: 8),
-        IconButton(
-          key: const Key('split'),
-          tooltip: 'Split at playhead (S)',
-          icon: const Icon(Icons.content_cut, size: 18),
-          onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
-        ),
+        if (!narrow)
+          IconButton(
+            key: const Key('split'),
+            tooltip: 'Split at playhead (S)',
+            icon: const Icon(Icons.content_cut, size: 18),
+            onPressed: hasClips ? () => splitAtPlayhead(ref, context) : null,
+          ),
         IconButton(
           key: const Key('delete'),
           tooltip: 'Delete (Delete)',
@@ -234,35 +235,39 @@ class _Toolbar extends ConsumerWidget {
               ? () => deleteSelectedClip(ref, context)
               : null,
         ),
-        IconButton(
-          key: const Key('add-title'),
-          tooltip: 'Add title or intro',
-          icon: const Icon(Icons.title, size: 18),
-          onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
-        ),
-        IconButton(
-          key: const Key('add-overlay'),
-          tooltip: 'Add a picture, GIF or video on top',
-          icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-          onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
-        ),
-        IconButton(
-          key: const Key('record-voiceover'),
-          tooltip: 'Record a voiceover',
-          icon: const Icon(Icons.mic_none, size: 18),
-          onPressed: hasClips
-              ? () {
-                  final rec = ref.read(recordingProvider.notifier);
-                  ref.read(recordingProvider).open ? rec.hide() : rec.show();
-                }
-              : null,
-        ),
-        IconButton(
-          key: const Key('ai-voiceover'),
-          tooltip: 'AI voiceover from a script',
-          icon: const Icon(Icons.record_voice_over_outlined, size: 18),
-          onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
-        ),
+        if (!narrow)
+          IconButton(
+            key: const Key('add-title'),
+            tooltip: 'Add title or intro',
+            icon: const Icon(Icons.title, size: 18),
+            onPressed: hasClips ? () => addTitleFlow(ref, context) : null,
+          ),
+        if (!narrow)
+          IconButton(
+            key: const Key('add-overlay'),
+            tooltip: 'Add a picture, GIF or video on top',
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+            onPressed: hasClips ? () => pickAndAddOverlay(ref, context) : null,
+          ),
+        if (!narrow)
+          IconButton(
+            key: const Key('record-voiceover'),
+            tooltip: 'Record a voiceover',
+            icon: const Icon(Icons.mic_none, size: 18),
+            onPressed: hasClips
+                ? () {
+                    final rec = ref.read(recordingProvider.notifier);
+                    ref.read(recordingProvider).open ? rec.hide() : rec.show();
+                  }
+                : null,
+          ),
+        if (!narrow)
+          IconButton(
+            key: const Key('ai-voiceover'),
+            tooltip: 'AI voiceover from a script',
+            icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+            onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
+          ),
         if (hasClips) const AudioMixButton(),
         if (narrow) const SizedBox(width: 16) else const Spacer(),
         IconButton(

@@ -9,6 +9,7 @@ import '../ai/chat_controller.dart';
 import '../editing/project_editor.dart';
 import '../storage/chat_store.dart';
 import '../storage/project_store.dart';
+import 'navigation.dart';
 
 const _projectType = XTypeGroup(
   label: 'Cutline project',
@@ -31,6 +32,7 @@ class FileActions {
     if (!await _confirmDiscard()) return;
     _editor.newProject();
     ref.read(chatProvider.notifier).clear();
+    await showEditor();
   }
 
   Future<void> open() async {
@@ -42,7 +44,9 @@ class FileActions {
       ref.read(chatProvider.notifier).load(await const ChatStore().load(path));
     } on ProjectFileException catch (e) {
       _showError(e.message);
+      return;
     }
+    await showEditor();
   }
 
   /// Returns false if the user cancelled.
@@ -98,6 +102,8 @@ class FileActions {
   }
 
   /// Asks to save unsaved changes. Returns false if the user cancelled.
+  Future<bool> confirmDiscard() => _confirmDiscard();
+
   Future<bool> _confirmDiscard() async {
     if (!_state.hasUnsavedChanges) return true;
     final choice = await showDialog<_DiscardChoice>(

@@ -6,10 +6,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// When the SCREENSHOT_DIR environment variable is set, saves what the app
 /// window shows to `<SCREENSHOT_DIR>/<name>.png`.
-Future<void> saveScreenshot(WidgetTester tester, String name) async {
+/// With [settle] false it doesn't wait for animations to finish (for
+/// screens with a spinner that keeps going).
+Future<void> saveScreenshot(
+  WidgetTester tester,
+  String name, {
+  bool settle = true,
+}) async {
   final dir = Platform.environment['SCREENSHOT_DIR'];
   if (dir == null) return;
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
   await tester.runAsync(() async {
     final view = tester.binding.renderViews.first;
     final layer = view.debugLayer! as OffsetLayer;

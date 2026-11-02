@@ -11,6 +11,7 @@ import 'export_dialog.dart';
 import 'file_actions.dart';
 import 'editor_shortcuts.dart';
 import 'import_actions.dart';
+import 'navigation.dart';
 import 'settings_dialog.dart';
 
 /// One menu command, shown in the native macOS menu bar or an in-window
@@ -33,7 +34,9 @@ class AppMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(projectEditorProvider);
     final editor = ref.read(projectEditorProvider.notifier);
-    final files = FileActions(ref, context);
+    // The menu sits above the navigator, so dialogs open on its context.
+    BuildContext ctx() => appNavigatorKey.currentContext ?? context;
+    FileActions files() => FileActions(ref, ctx());
     final mod = defaultTargetPlatform == TargetPlatform.macOS
         ? (LogicalKeyboardKey key, {bool shift = false}) =>
               SingleActivator(key, meta: true, shift: shift)
@@ -45,30 +48,34 @@ class AppMenu extends ConsumerWidget {
         MenuCommand(
           'New Project',
           mod(LogicalKeyboardKey.keyN),
-          files.newProject,
+          () => files().newProject(),
         ),
-        MenuCommand('Open…', mod(LogicalKeyboardKey.keyO), files.open),
-        MenuCommand('Save', mod(LogicalKeyboardKey.keyS), files.save),
+        MenuCommand(
+          'Open…',
+          mod(LogicalKeyboardKey.keyO),
+          () => files().open(),
+        ),
+        MenuCommand('Save', mod(LogicalKeyboardKey.keyS), () => files().save()),
         MenuCommand(
           'Save As…',
           mod(LogicalKeyboardKey.keyS, shift: true),
-          files.saveAs,
+          () => files().saveAs(),
         ),
         MenuCommand(
           'Import Video…',
           mod(LogicalKeyboardKey.keyI),
-          () => pickAndImportVideos(ref, context),
+          () => pickAndImportVideos(ref, ctx()),
         ),
         MenuCommand(
           'Export…',
           mod(LogicalKeyboardKey.keyE),
-          () => showExportFlow(ref, context),
+          () => showExportFlow(ref, ctx()),
         ),
         if (defaultTargetPlatform != TargetPlatform.macOS)
           MenuCommand(
             'Settings…',
             mod(LogicalKeyboardKey.comma),
-            () => showSettings(context),
+            () => showSettings(ctx()),
           ),
       ],
       'Edit': [
@@ -84,9 +91,9 @@ class AppMenu extends ConsumerWidget {
         ),
       ],
       'Help': [
-        MenuCommand('Getting Started…', null, () => showOnboarding(context)),
+        MenuCommand('Getting Started…', null, () => showOnboarding(ctx())),
         if (defaultTargetPlatform != TargetPlatform.macOS)
-          MenuCommand('About Cutline', null, () => showCutlineAbout(context)),
+          MenuCommand('About Cutline', null, () => showCutlineAbout(ctx())),
       ],
     };
 
@@ -101,7 +108,7 @@ class AppMenu extends ConsumerWidget {
                 members: [
                   PlatformMenuItem(
                     label: 'About Cutline',
-                    onSelected: () => showCutlineAbout(context),
+                    onSelected: () => showCutlineAbout(ctx()),
                   ),
                 ],
               ),
@@ -110,7 +117,7 @@ class AppMenu extends ConsumerWidget {
                   PlatformMenuItem(
                     label: 'Settings…',
                     shortcut: mod(LogicalKeyboardKey.comma),
-                    onSelected: () => showSettings(context),
+                    onSelected: () => showSettings(ctx()),
                   ),
                 ],
               ),

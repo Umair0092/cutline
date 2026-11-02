@@ -45,7 +45,10 @@ void main() {
     await tester.pumpAndSettle();
     final preview = tester.getRect(find.byKey(const Key('preview')));
     final timeline = tester.getRect(find.byKey(const Key('timeline')));
-    expect(preview.width, closeTo(1080 / 2.625, 1));
+    // Full width, less a small margin around the rounded video.
+    expect(preview.width, greaterThan(1080 / 2.625 - 24));
+    expect(find.byKey(const Key('action-ask')), findsOneWidget);
+    expect(find.byKey(const Key('compact-export')), findsOneWidget);
     expect(timeline.top, greaterThanOrEqualTo(preview.bottom));
     expect(tester.takeException(), isNull, reason: 'nothing overflows');
   });
@@ -53,11 +56,13 @@ void main() {
   testWidgets('phone: the assistant opens in a sheet; the menu has Settings', (
     tester,
   ) async {
-    await pumpPhone(tester);
-    await tester.tap(find.byKey(const Key('open-assistant')));
+    final container = await pumpPhone(tester);
+    container.read(projectEditorProvider.notifier).opened(threeClips(), '/p');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('action-ask')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('sidebar')), findsOneWidget);
-    expect(find.text('Memes'), findsOneWidget);
+    expect(find.byKey(const Key('tab-memes')), findsOneWidget);
     await tester.tapAt(const Offset(10, 10)); // outside the sheet
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('sidebar')), findsNothing);
@@ -72,10 +77,7 @@ void main() {
       find.widgetWithText(PopupMenuItem<VoidCallback>, 'Settings…'),
       findsOneWidget,
     );
-    expect(
-      find.widgetWithText(PopupMenuItem<VoidCallback>, 'Export…'),
-      findsOneWidget,
-    );
+
     expect(tester.takeException(), isNull);
   });
 }
