@@ -52,6 +52,12 @@ void main() {
   ) async {
     final container = await launch(tester);
     expect(find.byKey(const Key('onboarding')), findsOneWidget);
+    expect(find.text('Edit video by talking to it.'), findsOneWidget);
+
+    // "Get started" moves on to picking the AI.
+    await tester.tap(find.byKey(const Key('onboarding-next')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect the assistant'), findsOneWidget);
     expect(find.text('Add key'), findsOneWidget);
 

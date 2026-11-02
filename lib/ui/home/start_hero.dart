@@ -1,7 +1,6 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../onboarding/onboarding.dart';
 import '../tokens.dart';
@@ -192,24 +191,27 @@ class _StartHeroState extends ConsumerState<StartHero> {
                 ),
               ),
               const SizedBox(width: 20),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  OutlinedButton.icon(
-                    key: const Key('start-video'),
-                    onPressed: _video,
-                    icon: const Icon(CutIcons.video, size: 18),
-                    label: const Text('Choose video'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const Key('start-photos'),
-                    onPressed: _photos,
-                    icon: const Icon(CutIcons.image, size: 18),
-                    label: const Text('Start from photos'),
-                  ),
-                ],
+              SizedBox(
+                width: 188,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('start-video'),
+                      onPressed: _video,
+                      icon: const Icon(CutIcons.video, size: 18),
+                      label: const Text('Choose video'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const Key('start-photos'),
+                      onPressed: _photos,
+                      icon: const Icon(CutIcons.image, size: 18),
+                      label: const Text('Start from photos'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -303,10 +305,21 @@ class _StartHeroState extends ConsumerState<StartHero> {
                   boxShadow: CutShadows.e2,
                 ),
                 alignment: Alignment.center,
-                child: duotone(
-                  PhosphorIconsDuotone.filmReel,
-                  size: compact ? 48 : 60,
-                  color: Cut.onAccentContainer,
+                // Duotone: a soft accent fill under the outline.
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      CutIcons.filmFill,
+                      size: compact ? 48 : 60,
+                      color: Cut.accent.withValues(alpha: 0.32),
+                    ),
+                    Icon(
+                      CutIcons.film,
+                      size: compact ? 48 : 60,
+                      color: Cut.onAccentContainer,
+                    ),
+                  ],
                 ),
               ),
               SizedBox(height: compact ? 18 : 22),

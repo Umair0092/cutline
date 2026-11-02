@@ -102,6 +102,9 @@ abstract final class CutIcons {
   // Chat
   static const send = IconData(0xe08e, fontFamily: 'PhosphorBold');
   static const chat = IconData(0xe16e, fontFamily: 'PhosphorRegular');
+
+  // Home
+  static const filmFill = IconData(0xe8c0, fontFamily: 'PhosphorFill');
 }
 
 /// Size presets.

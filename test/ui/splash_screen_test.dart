@@ -46,7 +46,7 @@ void main() {
       (label: 'Checking video tools', run: (_) async => null),
     ]);
     expect(find.byKey(const Key('splash')), findsOneWidget);
-    expect(find.text('Cutline'), findsOneWidget);
+    expect(find.byKey(const Key('splash-wordmark')), findsOneWidget);
     expect(find.byKey(const Key('splash-progress')), findsOneWidget);
 
     // Still on the splash before the minimum time is up.
@@ -69,8 +69,11 @@ void main() {
         run: (_) async => 'Missing FFmpeg (export).',
       ),
     ], minimum: Duration.zero);
-    await tester.pump();
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: the first-run guide's animation would run the
+    // snackbar's time out.
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
     expect(find.text('Missing FFmpeg (export).'), findsOneWidget);
   });
 

@@ -932,6 +932,15 @@ class _EditLoopState extends State<_EditLoop>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (reduceEffects(context)) {
+      _played = _loops;
+      _c.value = 0.9;
+    }
+  }
+
+  @override
   void dispose() {
     _c.dispose();
     super.dispose();
@@ -941,7 +950,6 @@ class _EditLoopState extends State<_EditLoop>
 
   @override
   Widget build(BuildContext context) {
-    if (reduceEffects(context)) _c.value = 0.9;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 440),
       child: AnimatedBuilder(
@@ -949,9 +957,9 @@ class _EditLoopState extends State<_EditLoop>
         builder: (context, _) {
           final t = _c.value;
           // Fade out at the very end of each loop so it restarts cleanly.
-          final fade = t > 0.95 && _played < _loops - 1
-              ? 1 - (t - 0.95) / 0.05
-              : 1.0;
+          final fade =
+              (t > 0.95 && _played < _loops - 1 ? 1 - (t - 0.95) / 0.05 : 1.0)
+                  .clamp(0.0, 1.0);
           final typed = (_prompt.length * (t / 0.28)).floor().clamp(
             0,
             _prompt.length,
