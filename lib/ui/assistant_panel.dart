@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
 import '../ai/chat_controller.dart';
+import '../ai/meme_tools.dart';
 import '../editing/project_editor.dart';
+import '../memes/meme_panel.dart';
+import 'time_format.dart';
 import 'settings_dialog.dart';
 
 /// The chat sidebar: messages, a box to type in, and send/stop.
@@ -101,9 +104,21 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
                     padding: const EdgeInsets.all(12),
                     children: [
                       for (var i = 0; i < chat.entries.length; i++)
-                        chat.entries[i].role == ChatRole.change
-                            ? _ChangeCard(index: i, entry: chat.entries[i])
-                            : _Bubble(entry: chat.entries[i]),
+                        switch (chat.entries[i].role) {
+                          ChatRole.change => _ChangeCard(
+                            index: i,
+                            entry: chat.entries[i],
+                          ),
+                          ChatRole.memes => _MemeChoices(
+                            entry: chat.entries[i],
+                            onPick: (id) => _send('Use $id'),
+                          ),
+                          ChatRole.suggestion => _SuggestionCard(
+                            index: i,
+                            entry: chat.entries[i],
+                          ),
+                          _ => _Bubble(entry: chat.entries[i]),
+                        },
                       if (chat.streamingText != null)
                         _Bubble(
                           entry: ChatEntry(
@@ -268,6 +283,148 @@ class _ChangeCard extends ConsumerWidget {
                   ref.read(chatProvider.notifier).undoChange(index),
               child: const Text('Undo'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Meme search results, numbered by the id the assistant uses. Clicking
+/// one tells the assistant to use it.
+class _MemeChoices extends StatelessWidget {
+  const _MemeChoices({required this.entry, required this.onPick});
+
+  final ChatEntry entry;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final (id, meme) in entry.memes)
+            Tooltip(
+              message: '${meme.title} ($id)',
+              child: InkWell(
+                key: Key('meme-choice-$id'),
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => onPick(id),
+                child: SizedBox(
+                  width: 92,
+                  height: 72,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: ColoredBox(
+                          color: colors.surfaceContainerHighest,
+                          child: MemeThumbnail(meme: meme),
+                        ),
+                      ),
+                      Positioned(
+                        left: 4,
+                        top: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            id.replaceFirst('meme', ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A meme the assistant suggests, with Add and Skip.
+class _SuggestionCard extends ConsumerWidget {
+  const _SuggestionCard({required this.index, required this.entry});
+
+  final int index;
+  final ChatEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = entry.suggestion!;
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final chat = ref.read(chatProvider.notifier);
+    return Container(
+      key: Key('suggestion-$index'),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              width: 64,
+              height: 52,
+              child: MemeThumbnail(meme: s.meme),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${formatPlayerTime(s.start)} · ${s.meme.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.labelMedium,
+                ),
+                Text(s.reason, style: text.bodySmall),
+                if (s.status != SuggestionStatus.pending)
+                  Text(
+                    s.status == SuggestionStatus.accepted ? 'Added' : 'Skipped',
+                    style: text.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (s.status == SuggestionStatus.pending) ...[
+            IconButton(
+              key: Key('reject-$index'),
+              tooltip: 'Skip',
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: () => chat.rejectSuggestion(index),
+            ),
+            IconButton.filledTonal(
+              key: Key('accept-$index'),
+              tooltip: 'Add it',
+              icon: const Icon(Icons.check, size: 18),
+              onPressed: () => chat.acceptSuggestion(index),
+            ),
+          ],
         ],
       ),
     );

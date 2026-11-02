@@ -265,7 +265,7 @@ class MemeTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final image = _MemeImage(meme: meme);
+    final image = MemeThumbnail(meme: meme);
     return Tooltip(
       message: meme.title,
       waitDuration: const Duration(milliseconds: 600),
@@ -295,8 +295,9 @@ class MemeTile extends ConsumerWidget {
   }
 }
 
-class _MemeImage extends StatelessWidget {
-  const _MemeImage({required this.meme});
+/// A meme's preview picture (an icon for local videos).
+class MemeThumbnail extends StatelessWidget {
+  const MemeThumbnail({super.key, required this.meme});
 
   final Meme meme;
 

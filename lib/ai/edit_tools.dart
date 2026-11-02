@@ -6,7 +6,11 @@ import '../model/media_asset.dart';
 import '../model/project.dart';
 import '../model/title_item.dart';
 import '../model/video_clip.dart';
+import '../memes/meme_search.dart';
+import '../model/overlay_item.dart';
 import '../settings/preferences.dart';
+import '../transcript/transcript.dart';
+import 'meme_tools.dart';
 import '../titles/templates.dart';
 import 'project_summary.dart';
 
@@ -16,6 +20,10 @@ class ToolContext {
     this.renderIntro,
     this.playhead = Duration.zero,
     this.preferences = const Preferences(),
+    this.findMemes,
+    this.memeCommands,
+    this.memeChoices,
+    this.transcript = const [],
   });
 
   /// Renders an intro clip for "before the video" titles. Null where
@@ -28,6 +36,28 @@ class ToolContext {
   renderIntro;
   final Duration playhead;
   final Preferences preferences;
+
+  /// Searches your memes folder, then GIPHY. Null where memes aren't
+  /// available.
+  final Future<List<Meme>> Function(String query, {bool stickers})? findMemes;
+
+  /// Downloads/reads a meme and returns the commands that place it.
+  final Future<List<EditCommand>> Function(
+    Project project,
+    Meme meme,
+    Duration start,
+    OverlayTransform transform,
+    Duration? duration,
+    OverlayAnimation animation,
+  )?
+  memeCommands;
+
+  /// Memes from earlier searches by the id shown to the user ("meme3"),
+  /// kept across messages so "use meme3" works later.
+  final Map<String, Meme>? memeChoices;
+
+  /// What's said and when, on the timeline, for "when I talk about X".
+  final List<TranscriptLine> transcript;
 }
 
 /// What happened when the assistant called a tool.
@@ -38,6 +68,8 @@ class ToolOutcome {
     this.command,
     this.isError = false,
     this.seekTo,
+    this.memes = const [],
+    this.suggestions = const [],
   });
 
   /// The working project after the call (unchanged on error).
@@ -52,6 +84,12 @@ class ToolOutcome {
 
   /// Move the playhead here (not an edit).
   final Duration? seekTo;
+
+  /// Search results to show in the chat, so the user can pick one.
+  final List<(String, Meme)> memes;
+
+  /// Memes suggested for the user to accept or reject.
+  final List<MemeSuggestion> suggestions;
 }
 
 class _BadInput implements Exception {
@@ -202,6 +240,83 @@ class EditToolbox {
       ['title_id'],
     ),
     _tool(
+      'search_memes',
+      'Look for memes in the user\'s memes folder and on GIPHY. Returns up '
+          'to 6 options with ids like "meme3"; the user sees them as numbered '
+          'thumbnails in the chat. Not an edit.',
+      {
+        'query': {
+          'type': 'string',
+          'description': 'What the meme is, e.g. "this is fine".',
+        },
+        'stickers': {
+          'type': 'boolean',
+          'description': 'See-through stickers instead of GIFs.',
+        },
+      },
+      ['query'],
+    ),
+    _tool(
+      'add_meme',
+      'Put a meme on the video. "meme" is an id from search_memes, or words '
+          'to search for (the best match is used). Time it with "phrase" '
+          '(words the user says, found in the transcript) or "start"; '
+          'without either it goes at the playhead.',
+      {
+        'meme': {'type': 'string'},
+        'phrase': {
+          'type': 'string',
+          'description': 'Words from the transcript where it should appear.',
+        },
+        'start': _timeSchema,
+        'position': {'type': 'string', 'enum': memePositions},
+        'size': {'type': 'string', 'enum': memeSizes.keys.toList()},
+        'duration': {
+          'type': 'number',
+          'minimum': 0.5,
+          'maximum': 15,
+          'description': 'Seconds on screen; default 3 (or the clip length).',
+        },
+        'animation': {
+          'type': 'string',
+          'enum': [for (final a in OverlayAnimation.values) a.name],
+        },
+      },
+      ['meme'],
+    ),
+    _tool(
+      'suggest_memes',
+      'Suggest a few memes for the user to accept or reject one by one in '
+          'the chat, for "suggest memes for this video". Nothing is added '
+          'until they accept. Pick funny, fitting moments from the '
+          'transcript.',
+      {
+        'suggestions': {
+          'type': 'array',
+          'maxItems': 5,
+          'items': {
+            'type': 'object',
+            'properties': {
+              'meme': {
+                'type': 'string',
+                'description': 'Words to search for, or a search_memes id.',
+              },
+              'phrase': {'type': 'string'},
+              'start': _timeSchema,
+              'position': {'type': 'string', 'enum': memePositions},
+              'reason': {
+                'type': 'string',
+                'description': 'A few words on why it fits.',
+              },
+            },
+            'required': ['meme', 'reason'],
+            'additionalProperties': false,
+          },
+        },
+      },
+      ['suggestions'],
+    ),
+    _tool(
       'seek',
       'Move the playhead to a time so the user can look at that moment. '
           'Not an edit.',
@@ -226,6 +341,12 @@ class EditToolbox {
       );
     }
     try {
+      if (name == 'search_memes') {
+        return await _searchMemes(input, project, context);
+      }
+      if (name == 'suggest_memes') {
+        return await _suggestMemes(input, project, context);
+      }
       final (command, seekTo) = await _commandFor(
         name,
         input,
@@ -305,6 +426,7 @@ class EditToolbox {
       'edit_title' => (await _editTitle(input, project, context), null),
       'remove_title' => (RemoveTitle(_string(input, 'title_id')), null),
       'seek' => (null, _clampToProject(_time(input, 'time'), project)),
+      'add_meme' => (await _addMeme(input, project, context), null),
       _ => throw _BadInput('Unknown tool "$name".'),
     };
   }
@@ -419,6 +541,185 @@ class EditToolbox {
     if (render == null) throw _BadInput('Intros can\'t be rendered here.');
     return ReplaceGeneratedMedia(
       await render(project, merge(media!.title!), id: media.id),
+    );
+  }
+
+  Future<ToolOutcome> _searchMemes(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final find = context.findMemes;
+    final choices = context.memeChoices;
+    if (find == null || choices == null) {
+      throw _BadInput('Memes aren\'t available here.');
+    }
+    final query = _string(input, 'query');
+    final stickers = input['stickers'];
+    if (stickers != null && stickers is! bool) {
+      throw _BadInput('"stickers" must be true or false.');
+    }
+    final found = (await find(
+      query,
+      stickers: stickers == true,
+    )).take(6).toList();
+    if (found.isEmpty) {
+      return ToolOutcome(
+        project: project,
+        result: 'No memes found for "$query". Try other words.',
+      );
+    }
+    final shown = <(String, Meme)>[];
+    for (final m in found) {
+      final id = 'meme${choices.length + 1}';
+      choices[id] = m;
+      shown.add((id, m));
+    }
+    return ToolOutcome(
+      project: project,
+      memes: shown,
+      result: jsonEncode({
+        'options': [
+          for (final (id, m) in shown) {...m.toJson(), 'id': id},
+        ],
+        'note':
+            'The user sees these as thumbnails. If they asked for a specific '
+            'meme and the first fits, use it; otherwise ask which one.',
+      }),
+    );
+  }
+
+  Future<Meme> _resolveMeme(String ref, ToolContext context) async {
+    final choice = context.memeChoices?[ref.trim().toLowerCase()];
+    if (choice != null) return choice;
+    final find = context.findMemes;
+    if (find == null) throw _BadInput('Memes aren\'t available here.');
+    final found = await find(ref);
+    if (found.isEmpty) {
+      throw _BadInput('No meme found for "$ref". Try other words.');
+    }
+    return found.first;
+  }
+
+  Duration _memeStart(Map<String, dynamic> input, ToolContext context) {
+    final phrase = input['phrase'];
+    if (phrase != null) {
+      if (phrase is! String) throw _BadInput('"phrase" must be a string.');
+      if (context.transcript.isEmpty) {
+        throw _BadInput(
+          'The video has no transcript yet, so use "start" instead.',
+        );
+      }
+      final line = findPhrase(context.transcript, phrase);
+      if (line == null) {
+        throw _BadInput(
+          'Couldn\'t find "$phrase" in the transcript. Check the wording '
+          'or use "start".',
+        );
+      }
+      return line.start;
+    }
+    if (input.containsKey('start')) return _time(input, 'start');
+    return context.playhead;
+  }
+
+  String _enum(
+    Map<String, dynamic> input,
+    String key,
+    List<String> values,
+    String fallback,
+  ) {
+    final v = input[key];
+    if (v == null) return fallback;
+    if (v is! String || !values.contains(v)) {
+      throw _BadInput('"$key" must be one of: ${values.join(', ')}.');
+    }
+    return v;
+  }
+
+  Future<EditCommand> _addMeme(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final add = context.memeCommands;
+    if (add == null) throw _BadInput('Memes aren\'t available here.');
+    final meme = await _resolveMeme(_string(input, 'meme'), context);
+    final start = _memeStart(input, context);
+    final position = _enum(input, 'position', memePositions, 'center');
+    final size = _enum(input, 'size', memeSizes.keys.toList(), 'medium');
+    final animation = OverlayAnimation.values.byName(
+      _enum(input, 'animation', [
+        for (final a in OverlayAnimation.values) a.name,
+      ], OverlayAnimation.pop.name),
+    );
+    final duration = input.containsKey('duration')
+        ? _seconds(_number(input, 'duration', 0.5, 15))
+        : null;
+    if (start >= project.duration) {
+      throw _BadInput(
+        '${formatTime(start)} is past the end of the video '
+        '(${formatTime(project.duration)}).',
+      );
+    }
+    final room = project.duration - start;
+    final commands = await add(
+      project,
+      meme,
+      start,
+      memeTransform(position, memeSizes[size]!),
+      duration != null && duration > room ? room : duration,
+      animation,
+    );
+    return Batch('Add meme "${meme.title}"', commands);
+  }
+
+  Future<ToolOutcome> _suggestMemes(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final raw = input['suggestions'];
+    if (raw is! List || raw.isEmpty) {
+      throw _BadInput('"suggestions" must be a list of 1 to 5 items.');
+    }
+    final out = <MemeSuggestion>[];
+    final problems = <String>[];
+    for (final item in raw.take(5)) {
+      if (item is! Map<String, dynamic>) {
+        throw _BadInput('Each suggestion must be an object.');
+      }
+      try {
+        final meme = await _resolveMeme(_string(item, 'meme'), context);
+        final start = _memeStart(item, context);
+        if (start >= project.duration) {
+          throw _BadInput('${formatTime(start)} is past the end.');
+        }
+        out.add(
+          MemeSuggestion(
+            meme: meme,
+            start: start,
+            position: _enum(item, 'position', memePositions, 'bottom-right'),
+            size: memeSizes['medium']!,
+            reason: _string(item, 'reason'),
+          ),
+        );
+      } on _BadInput catch (e) {
+        problems.add('${item['meme']}: ${e.message}');
+      }
+    }
+    if (out.isEmpty) throw _BadInput(problems.join(' '));
+    return ToolOutcome(
+      project: project,
+      suggestions: out,
+      result: jsonEncode({
+        'shown': out.length,
+        if (problems.isNotEmpty) 'skipped': problems,
+        'note':
+            'The user accepts or rejects each one in the chat. Don\'t add '
+            'them yourself. Only mention the ${out.length} shown'
+            '${problems.isEmpty ? '' : '; the skipped ones had no meme'}.',
+      }),
     );
   }
 
