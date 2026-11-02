@@ -16,6 +16,8 @@ import '../export/exporter.dart';
 import '../model/media_asset.dart';
 import '../model/overlay_item.dart';
 import '../model/title_item.dart';
+import '../memes/meme_actions.dart';
+import '../memes/meme_search.dart';
 import '../overlays/overlay_actions.dart';
 import '../titles/title_actions.dart';
 import '../titles/title_editor_dialog.dart';
@@ -267,6 +269,7 @@ enum _DragKind { scrub, trim, move, moveTitle, moveOverlay, trimOverlay }
 
 class _TimelineTracksState extends ConsumerState<TimelineTracks> {
   final _scroll = ScrollController();
+  final _tracksKey = GlobalKey();
   final _position = ValueNotifier(Duration.zero);
   StreamSubscription<Duration>? _positionSub;
   PreviewController? _preview;
@@ -731,38 +734,61 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
                     ? SystemMouseCursors.grabbing
                     : _cursor,
                 onHover: _onHover,
-                child: GestureDetector(
-                  key: const Key('timeline-tracks'),
-                  behavior: HitTestBehavior.opaque,
-                  // Report where the pointer went down, not where it was
-                  // once it had moved far enough to count as a drag, so
-                  // grabbing an edge grabs that edge.
-                  dragStartBehavior: DragStartBehavior.down,
-                  onTapUp: _onTapUp,
-                  onPanStart: _onPanStart,
-                  onPanUpdate: _onPanUpdate,
-                  onPanEnd: _onPanEnd,
-                  child: SizedBox(
-                    width: width,
-                    height: constraints.maxHeight,
-                    child: CustomPaint(
-                      painter: TracksPainter(
-                        geometry: g,
-                        boxes: boxes,
-                        previews: previews,
-                        colors: colors,
-                        selectedClipId: ui.selectedClipId,
-                        dropX: dropX,
-                        visible: visible,
-                        selectedTitleId: ui.selectedTitleId,
-                        titleDrag: _titleDrag,
-                        selectedOverlayId: ui.selectedOverlayId,
-                        overlayDrag: _overlayDrag,
-                      ),
-                      foregroundPainter: PlayheadPainter(
-                        geometry: g,
-                        position: _position,
-                        color: colors.playhead,
+                child: DragTarget<Meme>(
+                  // Memes dragged from the browser land where they're
+                  // dropped in time.
+                  onAcceptWithDetails: (d) {
+                    final box =
+                        _tracksKey.currentContext?.findRenderObject()
+                            as RenderBox?;
+                    if (box == null) return;
+                    final x = box.globalToLocal(d.offset).dx;
+                    final g = _geometry();
+                    var at = g.timeAt(x);
+                    if (at < Duration.zero) at = Duration.zero;
+                    unawaited(addMeme(ref, context, d.data, at));
+                  },
+                  builder: (context, candidates, _) => Container(
+                    foregroundDecoration: candidates.isEmpty
+                        ? null
+                        : BoxDecoration(
+                            color: colors.selected.withValues(alpha: 0.08),
+                          ),
+                    child: GestureDetector(
+                      key: const Key('timeline-tracks'),
+                      behavior: HitTestBehavior.opaque,
+                      // Report where the pointer went down, not where it was
+                      // once it had moved far enough to count as a drag, so
+                      // grabbing an edge grabs that edge.
+                      dragStartBehavior: DragStartBehavior.down,
+                      onTapUp: _onTapUp,
+                      onPanStart: _onPanStart,
+                      onPanUpdate: _onPanUpdate,
+                      onPanEnd: _onPanEnd,
+                      child: SizedBox(
+                        key: _tracksKey,
+                        width: width,
+                        height: constraints.maxHeight,
+                        child: CustomPaint(
+                          painter: TracksPainter(
+                            geometry: g,
+                            boxes: boxes,
+                            previews: previews,
+                            colors: colors,
+                            selectedClipId: ui.selectedClipId,
+                            dropX: dropX,
+                            visible: visible,
+                            selectedTitleId: ui.selectedTitleId,
+                            titleDrag: _titleDrag,
+                            selectedOverlayId: ui.selectedOverlayId,
+                            overlayDrag: _overlayDrag,
+                          ),
+                          foregroundPainter: PlayheadPainter(
+                            geometry: g,
+                            position: _position,
+                            color: colors.playhead,
+                          ),
+                        ),
                       ),
                     ),
                   ),

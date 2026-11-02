@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/api_key_store.dart';
 import '../ai/assistant_client.dart';
+import '../memes/meme_search.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
 
@@ -20,6 +21,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   final _key = TextEditingController();
   final _name = TextEditingController();
   final _brand = TextEditingController();
+  final _giphy = TextEditingController();
   bool _show = false;
   String? _error;
   String? _brandError;
@@ -39,6 +41,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     _key.dispose();
     _name.dispose();
     _brand.dispose();
+    _giphy.dispose();
     super.dispose();
   }
 
@@ -68,11 +71,15 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             brandColor: brand.isEmpty ? '' : toHex(parseHexColor(brand)!),
           ),
         );
+    final giphy = _giphy.text.trim();
+    if (giphy.isNotEmpty) {
+      await ref.read(giphyKeyProvider.notifier).save(giphy);
+    }
     final provider = prefs.provider;
-    // The key is optional here: saving only your name is fine once a key
-    // is stored.
+    // The key is optional here: saving only your name (or a GIPHY key) is
+    // fine once a key is stored.
     final saved = ref.read(apiKeyProvider).value;
-    if (_key.text.trim().isEmpty && saved != null) {
+    if (_key.text.trim().isEmpty && (saved != null || giphy.isNotEmpty)) {
       if (mounted) Navigator.pop(context);
       return;
     }
@@ -91,10 +98,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final saved = ref.watch(apiKeyProvider).value;
+    final giphy = ref.watch(giphyKeyProvider).value;
     final provider =
         ref.watch(preferencesProvider).value?.provider ?? AiProvider.groq;
     final theme = Theme.of(context);
     return AlertDialog(
+      scrollable: true,
       title: const Text('Settings'),
       content: SizedBox(
         width: 440,
@@ -192,6 +201,44 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     onChanged: (_) => setState(() => _brandError = null),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text('Memes', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              giphy == null
+                  ? 'Optional: a free GIPHY key lets you search GIFs and '
+                        'stickers. Get one at developers.giphy.com.'
+                  : 'A GIPHY key ending in '
+                        '…${giphy.substring(giphy.length < 4 ? 0 : giphy.length - 4)} '
+                        'is saved in your system keychain.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('giphy-key'),
+                    controller: _giphy,
+                    obscureText: true,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: InputDecoration(
+                      labelText: 'GIPHY API key',
+                      hintText: giphy == null ? null : 'Paste a new key',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                if (giphy != null)
+                  IconButton(
+                    tooltip: 'Remove the GIPHY key',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () =>
+                        ref.read(giphyKeyProvider.notifier).remove(),
+                  ),
               ],
             ),
           ],

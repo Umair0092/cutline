@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editing/commands.dart';
 import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
+import '../memes/meme_actions.dart';
+import '../memes/meme_search.dart';
 import '../model/overlay_item.dart';
 import '../model/project.dart';
 import '../preview/playhead_clock.dart';
@@ -185,29 +189,49 @@ class _OverlayLayerState extends ConsumerState<OverlayLayer>
     return LayoutBuilder(
       builder: (context, box) {
         final size = box.biggest;
-        return MouseRegion(
-          cursor: _cursor,
-          onHover: (e) => _onHover(e, size),
-          child: GestureDetector(
-            key: const Key('overlay-layer'),
-            behavior: HitTestBehavior.translucent,
-            dragStartBehavior: DragStartBehavior.down,
-            onTapUp: (d) => _onTapUp(d, size),
-            onPanStart: (d) => _onPanStart(d, size),
-            onPanUpdate: (d) => _onPanUpdate(d, size),
-            onPanEnd: (_) => _onPanEnd(),
-            onPanCancel: _onPanEnd,
-            child: ListenableBuilder(
-              listenable: _clock,
-              builder: (context, _) => CustomPaint(
-                size: size,
-                painter: _OverlaysPainter(
-                  overlays: project.overlays,
-                  frames: frames,
-                  now: _clock.now,
-                  selectedId: selected,
-                  draft: _draft == null ? null : (id: _dragId!, t: _draft!),
-                  selection: Theme.of(context).colorScheme.primary,
+        // A meme dropped on the video goes where it's dropped, at the
+        // playhead.
+        return DragTarget<Meme>(
+          onAcceptWithDetails: (d) {
+            final local = (context.findRenderObject()! as RenderBox)
+                .globalToLocal(d.offset);
+            unawaited(
+              addMeme(
+                ref,
+                context,
+                d.data,
+                ref.read(previewProvider).position,
+                transform: OverlayTransform(
+                  x: (local.dx / size.width).clamp(0.0, 1.0),
+                  y: (local.dy / size.height).clamp(0.0, 1.0),
+                ),
+              ),
+            );
+          },
+          builder: (context, candidates, _) => MouseRegion(
+            cursor: _cursor,
+            onHover: (e) => _onHover(e, size),
+            child: GestureDetector(
+              key: const Key('overlay-layer'),
+              behavior: HitTestBehavior.translucent,
+              dragStartBehavior: DragStartBehavior.down,
+              onTapUp: (d) => _onTapUp(d, size),
+              onPanStart: (d) => _onPanStart(d, size),
+              onPanUpdate: (d) => _onPanUpdate(d, size),
+              onPanEnd: (_) => _onPanEnd(),
+              onPanCancel: _onPanEnd,
+              child: ListenableBuilder(
+                listenable: _clock,
+                builder: (context, _) => CustomPaint(
+                  size: size,
+                  painter: _OverlaysPainter(
+                    overlays: project.overlays,
+                    frames: frames,
+                    now: _clock.now,
+                    selectedId: selected,
+                    draft: _draft == null ? null : (id: _dragId!, t: _draft!),
+                    selection: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ),
