@@ -51,3 +51,4 @@ app.*.map.json
 
 # Keys built into personal builds (tool/build_with_keys.sh). Never commit.
 keys.env
+/.claude/worktrees/

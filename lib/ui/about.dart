@@ -21,6 +21,9 @@ void registerBundledLicenses() {
     yield LicenseEntryWithLineBreaks([
       'whisper.cpp',
     ], await text('assets/licenses/whisper.cpp-MIT.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Phosphor icons',
+    ], await text('assets/fonts/phosphor/Phosphor-MIT.txt'));
     for (final font in [
       'Inter',
       'BebasNeue',
