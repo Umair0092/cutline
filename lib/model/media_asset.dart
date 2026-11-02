@@ -34,6 +34,17 @@ abstract class MediaAsset with _$MediaAsset {
     /// Set when the app made this file by text-to-speech (an AI
     /// voiceover line), so it can be re-made with new words or a new voice.
     SpeechSpec? speech,
+
+    /// A friendlier name than the file's, e.g. a song title.
+    String? name,
+
+    /// Who made it and its license, for music and sounds from Openverse.
+    /// Shown in the export dialog so you can credit them.
+    String? credit,
+
+    /// What the assistant saw in a picture you attached, so later
+    /// messages can refer to it without sending the picture again.
+    String? description,
   }) = _MediaAsset;
 
   factory MediaAsset.fromJson(Map<String, dynamic> json) =>

@@ -7,6 +7,8 @@ import '../model/project.dart';
 import '../model/title_item.dart';
 import '../model/video_clip.dart';
 import '../memes/meme_search.dart';
+import '../model/audio_item.dart';
+import '../music/music_library.dart';
 import '../model/overlay_item.dart';
 import '../settings/preferences.dart';
 import '../transcript/transcript.dart';
@@ -30,6 +32,9 @@ class ToolContext {
     this.transcript = const [],
     this.voiceover,
     this.remakeLine,
+    this.findTracks,
+    this.trackChoices,
+    this.trackMedia,
   });
 
   /// Renders an intro clip for "before the video" titles. Null where
@@ -83,6 +88,18 @@ class ToolContext {
     SpeechSpec spec,
   )?
   remakeLine;
+
+  /// Searches the free music and sound library. Null where it isn't
+  /// available.
+  final Future<List<Track>> Function(String query, {TrackKind kind})?
+  findTracks;
+
+  /// Tracks from earlier searches ("music2", "sound1") and audio files the
+  /// user attached ("file1"), kept across messages.
+  final Map<String, Track>? trackChoices;
+
+  /// Downloads or copies a track into the project and returns its media.
+  final Future<MediaAsset> Function(Project project, Track track)? trackMedia;
 }
 
 /// What happened when the assistant called a tool.
@@ -95,6 +112,7 @@ class ToolOutcome {
     this.seekTo,
     this.memes = const [],
     this.suggestions = const [],
+    this.tracks = const [],
   });
 
   /// The working project after the call (unchanged on error).
@@ -115,6 +133,9 @@ class ToolOutcome {
 
   /// Memes suggested for the user to accept or reject.
   final List<MemeSuggestion> suggestions;
+
+  /// Music or sounds found, to show (and play) in the chat.
+  final List<(String, Track)> tracks;
 }
 
 class _BadInput implements Exception {
@@ -427,6 +448,100 @@ class EditToolbox {
       ['target'],
     ),
     _tool(
+      'search_music',
+      'Look for background music or sound effects in a free library of '
+          'Creative Commons tracks. Returns up to 6 options with ids like '
+          '"music2" or "sound1"; the user sees them as cards they can play. '
+          'Search by mood, genre or instrument ("calm lofi piano", "upbeat '
+          'electronic", "epic cinematic"), not song names: famous songs '
+          'aren\'t free to use. Not an edit.',
+      {
+        'query': {'type': 'string'},
+        'kind': {
+          'type': 'string',
+          'enum': ['music', 'sound'],
+          'description': 'music (default) or sound effects.',
+        },
+      },
+      ['query'],
+    ),
+    _tool(
+      'add_music',
+      'Put background music under the video. "music" is an id from '
+          'search_music, a "file" id of an audio file the user attached, or '
+          'words to search for (the best match is used). Plays from "start" '
+          'to "end" (default: the whole video), repeating if the track is '
+          'shorter, with a fade in and out. Music already in that range is '
+          'replaced. It\'s evened out and lowered automatically when anyone '
+          'talks.',
+      {
+        'music': {'type': 'string'},
+        'start': _timeSchema,
+        'end': _timeSchema,
+        'track_from': {
+          'type': 'number',
+          'minimum': 0,
+          'description':
+              'Seconds into the track to start from, e.g. to skip a slow '
+              'intro.',
+        },
+        'level': {
+          'type': 'number',
+          'minimum': 0,
+          'maximum': 2,
+          'description':
+              'Music track level (sets the mix): 0.6 is a quiet bed under '
+              'talking (default), 1 is present, 1.3+ for parts without '
+              'speech.',
+        },
+      },
+      ['music'],
+    ),
+    _tool(
+      'add_sound',
+      'Add a sound effect (whoosh, applause, ding, laugh...). "sound" is an '
+          'id from search_music with kind "sound", a "file" id, or words to '
+          'search for. Time it with "phrase" or "start"; default the '
+          'playhead.',
+      {
+        'sound': {'type': 'string'},
+        'phrase': {'type': 'string'},
+        'start': _timeSchema,
+        'volume': {'type': 'number', 'minimum': 0, 'maximum': 2},
+      },
+      ['sound'],
+    ),
+    _tool(
+      'set_audio_mix',
+      'Set how loud each track is and what gets lowered under speech. '
+          'Levels are 0 (silent) to 2 (double); 1 is normal. Only what you '
+          'pass changes. "video" is the video\'s own sound (usually the '
+          'user\'s voice), "voiceover" the recorded or AI voice, "music" '
+          'the background music. duck_video lowers the video under '
+          'voiceovers; duck_music lowers music when anyone talks.',
+      {
+        'video': {'type': 'number', 'minimum': 0, 'maximum': 2},
+        'voiceover': {'type': 'number', 'minimum': 0, 'maximum': 2},
+        'music': {'type': 'number', 'minimum': 0, 'maximum': 2},
+        'duck_video': {'type': 'boolean'},
+        'duck_music': {'type': 'boolean'},
+      },
+      [],
+    ),
+    _tool(
+      'remove_audio',
+      'Delete an audio item by audio_id (from "audio"), or every item of a '
+          'role: "music", "voiceover" or "effect".',
+      {
+        'audio_id': {'type': 'string'},
+        'role': {
+          'type': 'string',
+          'enum': [for (final r in AudioRole.values) r.name],
+        },
+      },
+      [],
+    ),
+    _tool(
       'seek',
       'Move the playhead to a time so the user can look at that moment. '
           'Not an edit.',
@@ -457,6 +572,9 @@ class EditToolbox {
       if (name == 'suggest_memes') {
         return await _suggestMemes(input, project, context);
       }
+      if (name == 'search_music') {
+        return await _searchMusic(input, project, context);
+      }
       final (command, seekTo) = await _commandFor(
         name,
         input,
@@ -482,6 +600,8 @@ class EditToolbox {
     } on _BadInput catch (e) {
       return ToolOutcome(project: project, isError: true, result: e.message);
     } on EditException catch (e) {
+      return ToolOutcome(project: project, isError: true, result: e.message);
+    } on MusicException catch (e) {
       return ToolOutcome(project: project, isError: true, result: e.message);
     } on Exception catch (e) {
       // Rendering an intro can fail (e.g. FFmpeg missing).
@@ -543,6 +663,10 @@ class EditToolbox {
         await _remakeLine(input, project, context),
         null,
       ),
+      'add_music' => (await _addMusic(input, project, context), null),
+      'add_sound' => (await _addSound(input, project, context), null),
+      'set_audio_mix' => (_setMix(input, project), null),
+      'remove_audio' => (_removeAudio(input, project), null),
       _ => throw _BadInput('Unknown tool "$name".'),
     };
   }
@@ -837,6 +961,199 @@ class EditToolbox {
             '${problems.isEmpty ? '' : '; the skipped ones had no meme'}.',
       }),
     );
+  }
+
+  Future<ToolOutcome> _searchMusic(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final find = context.findTracks;
+    final choices = context.trackChoices;
+    if (find == null || choices == null) {
+      throw _BadInput('Music isn\'t available here.');
+    }
+    final query = _string(input, 'query');
+    final kind = _enum(input, 'kind', ['music', 'sound'], 'music') == 'sound'
+        ? TrackKind.sound
+        : TrackKind.music;
+    final found = (await find(query, kind: kind)).take(6).toList();
+    if (found.isEmpty) {
+      return ToolOutcome(
+        project: project,
+        result:
+            'Nothing found for "$query". Try other words (a mood or '
+            'genre).',
+      );
+    }
+    final prefix = kind == TrackKind.music ? 'music' : 'sound';
+    final shown = <(String, Track)>[];
+    for (final t in found) {
+      final n = choices.keys.where((k) => k.startsWith(prefix)).length + 1;
+      final id = '$prefix$n';
+      choices[id] = t;
+      shown.add((id, t));
+    }
+    return ToolOutcome(
+      project: project,
+      tracks: shown,
+      result: jsonEncode({
+        'options': [
+          for (final (id, t) in shown) {...t.toJson(), 'id': id},
+        ],
+        'note':
+            'The user sees these as cards they can play. If one clearly '
+            'fits, use it; otherwise ask which one they like.',
+      }),
+    );
+  }
+
+  Future<Track> _resolveTrack(
+    String ref,
+    TrackKind kind,
+    ToolContext context,
+  ) async {
+    final choice = context.trackChoices?[ref.trim().toLowerCase()];
+    if (choice != null) return choice;
+    final find = context.findTracks;
+    if (find == null) throw _BadInput('Music isn\'t available here.');
+    final found = await find(ref, kind: kind);
+    if (found.isEmpty) {
+      throw _BadInput('Nothing found for "$ref". Try a mood or genre.');
+    }
+    return found.first;
+  }
+
+  Future<EditCommand> _addMusic(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final place = context.trackMedia;
+    if (place == null) throw _BadInput('Music isn\'t available here.');
+    if (project.clips.isEmpty) throw _BadInput('There is no video yet.');
+    final from = input.containsKey('start')
+        ? _time(input, 'start')
+        : Duration.zero;
+    final to = input.containsKey('end')
+        ? _time(input, 'end')
+        : project.duration;
+    if (from >= project.duration) {
+      throw _BadInput(
+        '${formatTime(from)} is past the end of the video '
+        '(${formatTime(project.duration)}).',
+      );
+    }
+    if (to <= from) throw _BadInput('"end" must be after "start".');
+    final track = await _resolveTrack(
+      _string(input, 'music'),
+      TrackKind.music,
+      context,
+    );
+    final media = await place(project, track);
+    final trackFrom = input.containsKey('track_from')
+        ? _seconds(_number(input, 'track_from', 0, 24 * 3600))
+        : Duration.zero;
+    // Replace music that would play at the same time.
+    final replaced = [
+      for (final a in project.audio)
+        if (a.role == AudioRole.music && a.start < to && a.end > from)
+          RemoveAudio(a.id),
+    ];
+    final commands = <EditCommand>[
+      ...replaced,
+      ...musicCommands(
+        project,
+        media,
+        from: from,
+        to: to,
+        sourceStart: trackFrom,
+      ),
+    ];
+    if (input.containsKey('level')) {
+      commands.add(
+        SetAudioMix(project.mix.copyWith(music: _number(input, 'level', 0, 2))),
+      );
+    }
+    return Batch('Add music "${track.title}"', commands);
+  }
+
+  Future<EditCommand> _addSound(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) async {
+    final place = context.trackMedia;
+    if (place == null) throw _BadInput('Sounds aren\'t available here.');
+    final start = _memeStart(input, context);
+    if (start >= project.duration) {
+      throw _BadInput(
+        '${formatTime(start)} is past the end of the video '
+        '(${formatTime(project.duration)}).',
+      );
+    }
+    final track = await _resolveTrack(
+      _string(input, 'sound'),
+      TrackKind.sound,
+      context,
+    );
+    final media = await place(project, track);
+    return Batch(
+      'Add sound "${track.title}"',
+      soundCommands(
+        project,
+        media,
+        start,
+        volume: input.containsKey('volume')
+            ? _number(input, 'volume', 0, 2)
+            : 1,
+      ),
+    );
+  }
+
+  EditCommand _setMix(Map<String, dynamic> input, Project project) {
+    bool? flag(String key) {
+      final v = input[key];
+      if (v == null) return null;
+      if (v is! bool) throw _BadInput('"$key" must be true or false.');
+      return v;
+    }
+
+    double? level(String key) =>
+        input.containsKey(key) ? _number(input, key, 0, 2) : null;
+    if (input.isEmpty) throw _BadInput('Pass at least one level or switch.');
+    final m = project.mix;
+    return SetAudioMix(
+      m.copyWith(
+        original: level('video') ?? m.original,
+        voiceover: level('voiceover') ?? m.voiceover,
+        music: level('music') ?? m.music,
+        duck: flag('duck_video') ?? m.duck,
+        duckMusic: flag('duck_music') ?? m.duckMusic,
+      ),
+    );
+  }
+
+  EditCommand _removeAudio(Map<String, dynamic> input, Project project) {
+    final id = input['audio_id'];
+    final role = input['role'];
+    if ((id == null) == (role == null)) {
+      throw _BadInput('Pass exactly one of "audio_id" or "role".');
+    }
+    if (id != null) {
+      if (id is! String || !project.audio.any((a) => a.id == id)) {
+        throw _BadInput('There is no audio item "$id".');
+      }
+      return RemoveAudio(id);
+    }
+    final r = AudioRole.values.byName(
+      _enum(input, 'role', [for (final r in AudioRole.values) r.name], 'music'),
+    );
+    final items = project.audio.where((a) => a.role == r).toList();
+    if (items.isEmpty) throw _BadInput('There is no ${r.name} to remove.');
+    return Batch('Delete ${r.name}', [
+      for (final a in items) RemoveAudio(a.id),
+    ]);
   }
 
   EditCommand _setVoiceEffect(Map<String, dynamic> input, Project project) {

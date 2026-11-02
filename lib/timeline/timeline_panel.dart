@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../model/audio_item.dart';
+import '../music/music_panel.dart';
+
 import '../editing/commands.dart';
 import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
@@ -268,6 +271,12 @@ class _Toolbar extends ConsumerWidget {
             icon: const Icon(Icons.record_voice_over_outlined, size: 18),
             onPressed: hasClips ? () => showVoiceoverDialog(context) : null,
           ),
+        IconButton(
+          key: const Key('add-music'),
+          tooltip: 'Add music or a sound',
+          icon: const Icon(Icons.library_music_outlined, size: 18),
+          onPressed: hasClips ? () => showMusicBrowser(context) : null,
+        ),
         if (hasClips) const AudioMixButton(),
         if (narrow) const SizedBox(width: 16) else const Spacer(),
         IconButton(
@@ -409,10 +418,13 @@ class _TimelineTracksState extends ConsumerState<TimelineTracks> {
         for (final o in g.project.overlays)
           (audio: false, id: o.id, start: o.start, duration: o.duration),
       ];
-    } else if (_inRow(at.dy, TimelineRows.audioTop)) {
+    } else if (_inRow(at.dy, TimelineRows.audioTop) ||
+        _inRow(at.dy, TimelineRows.musicTop)) {
+      final music = _inRow(at.dy, TimelineRows.musicTop);
       spans = [
         for (final a in g.project.audio)
-          (audio: true, id: a.id, start: a.start, duration: a.duration),
+          if ((a.role == AudioRole.music) == music)
+            (audio: true, id: a.id, start: a.start, duration: a.duration),
       ];
     } else {
       return null;

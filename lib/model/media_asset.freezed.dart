@@ -20,7 +20,12 @@ mixin _$MediaAsset {
 /// placed before the video), so it can be re-made after edits.
  TitleSpec? get title;/// Set when the app made this file by text-to-speech (an AI
 /// voiceover line), so it can be re-made with new words or a new voice.
- SpeechSpec? get speech;
+ SpeechSpec? get speech;/// A friendlier name than the file's, e.g. a song title.
+ String? get name;/// Who made it and its license, for music and sounds from Openverse.
+/// Shown in the export dialog so you can credit them.
+ String? get credit;/// What the assistant saw in a picture you attached, so later
+/// messages can refer to it without sending the picture again.
+ String? get description;
 /// Create a copy of MediaAsset
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -34,20 +39,20 @@ $MediaAssetCopyWith<MediaAsset> get copyWith => _$MediaAssetCopyWithImpl<MediaAs
 @override
 bool operator ==(Object other) {
   final _this = this as MediaAsset;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MediaAsset&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.path, _this.path) || other.path == _this.path)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.width, _this.width) || other.width == _this.width)&&(identical(other.height, _this.height) || other.height == _this.height)&&(identical(other.hasAudio, _this.hasAudio) || other.hasAudio == _this.hasAudio)&&(identical(other.frameRate, _this.frameRate) || other.frameRate == _this.frameRate)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.speech, _this.speech) || other.speech == _this.speech));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MediaAsset&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.path, _this.path) || other.path == _this.path)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.width, _this.width) || other.width == _this.width)&&(identical(other.height, _this.height) || other.height == _this.height)&&(identical(other.hasAudio, _this.hasAudio) || other.hasAudio == _this.hasAudio)&&(identical(other.frameRate, _this.frameRate) || other.frameRate == _this.frameRate)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.speech, _this.speech) || other.speech == _this.speech)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.credit, _this.credit) || other.credit == _this.credit)&&(identical(other.description, _this.description) || other.description == _this.description));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as MediaAsset;
-  return Object.hash(runtimeType,_this.id,_this.path,_this.kind,_this.duration,_this.width,_this.height,_this.hasAudio,_this.frameRate,_this.title,_this.speech);
+  return Object.hash(runtimeType,_this.id,_this.path,_this.kind,_this.duration,_this.width,_this.height,_this.hasAudio,_this.frameRate,_this.title,_this.speech,_this.name,_this.credit,_this.description);
 }
 
 @override
 String toString() {
   final _this = this as MediaAsset;
-  return 'MediaAsset(id: ${_this.id}, path: ${_this.path}, kind: ${_this.kind}, duration: ${_this.duration}, width: ${_this.width}, height: ${_this.height}, hasAudio: ${_this.hasAudio}, frameRate: ${_this.frameRate}, title: ${_this.title}, speech: ${_this.speech})';
+  return 'MediaAsset(id: ${_this.id}, path: ${_this.path}, kind: ${_this.kind}, duration: ${_this.duration}, width: ${_this.width}, height: ${_this.height}, hasAudio: ${_this.hasAudio}, frameRate: ${_this.frameRate}, title: ${_this.title}, speech: ${_this.speech}, name: ${_this.name}, credit: ${_this.credit}, description: ${_this.description})';
 }
 
 
@@ -58,7 +63,7 @@ abstract mixin class $MediaAssetCopyWith<$Res>  {
   factory $MediaAssetCopyWith(MediaAsset value, $Res Function(MediaAsset) _then) = _$MediaAssetCopyWithImpl;
 @useResult
 $Res call({
- String id, String path, MediaKind kind,@DurationConverter() Duration duration, int width, int height, bool hasAudio, double frameRate, TitleSpec? title, SpeechSpec? speech
+ String id, String path, MediaKind kind,@DurationConverter() Duration duration, int width, int height, bool hasAudio, double frameRate, TitleSpec? title, SpeechSpec? speech, String? name, String? credit, String? description
 });
 
 
@@ -75,7 +80,7 @@ class _$MediaAssetCopyWithImpl<$Res>
 
 /// Create a copy of MediaAsset
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? path = null,Object? kind = null,Object? duration = null,Object? width = null,Object? height = null,Object? hasAudio = null,Object? frameRate = null,Object? title = freezed,Object? speech = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? path = null,Object? kind = null,Object? duration = null,Object? width = null,Object? height = null,Object? hasAudio = null,Object? frameRate = null,Object? title = freezed,Object? speech = freezed,Object? name = freezed,Object? credit = freezed,Object? description = freezed,}) {
   return _then(MediaAsset(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
@@ -87,7 +92,10 @@ as int,hasAudio: null == hasAudio ? _self.hasAudio : hasAudio // ignore: cast_nu
 as bool,frameRate: null == frameRate ? _self.frameRate : frameRate // ignore: cast_nullable_to_non_nullable
 as double,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as TitleSpec?,speech: freezed == speech ? _self.speech : speech // ignore: cast_nullable_to_non_nullable
-as SpeechSpec?,
+as SpeechSpec?,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String?,credit: freezed == credit ? _self.credit : credit // ignore: cast_nullable_to_non_nullable
+as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 /// Create a copy of MediaAsset
@@ -196,10 +204,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech,  String? name,  String? credit,  String? description)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MediaAsset() when $default != null:
-return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech);case _:
+return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech,_that.name,_that.credit,_that.description);case _:
   return orElse();
 
 }
@@ -217,10 +225,10 @@ return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech,  String? name,  String? credit,  String? description)  $default,) {final _that = this;
 switch (_that) {
 case _MediaAsset():
-return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech);case _:
+return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech,_that.name,_that.credit,_that.description);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -237,10 +245,10 @@ return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String path,  MediaKind kind, @DurationConverter()  Duration duration,  int width,  int height,  bool hasAudio,  double frameRate,  TitleSpec? title,  SpeechSpec? speech,  String? name,  String? credit,  String? description)?  $default,) {final _that = this;
 switch (_that) {
 case _MediaAsset() when $default != null:
-return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech);case _:
+return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.height,_that.hasAudio,_that.frameRate,_that.title,_that.speech,_that.name,_that.credit,_that.description);case _:
   return null;
 
 }
@@ -252,7 +260,7 @@ return $default(_that.id,_that.path,_that.kind,_that.duration,_that.width,_that.
 @JsonSerializable()
 
 class _MediaAsset implements MediaAsset {
-  const _MediaAsset({required this.id, required this.path, required this.kind, @DurationConverter() this.duration = Duration.zero, this.width = 0, this.height = 0, this.hasAudio = false, this.frameRate = 30.0, this.title, this.speech});
+  const _MediaAsset({required this.id, required this.path, required this.kind, @DurationConverter() this.duration = Duration.zero, this.width = 0, this.height = 0, this.hasAudio = false, this.frameRate = 30.0, this.title, this.speech, this.name, this.credit, this.description});
   factory _MediaAsset.fromJson(Map<String, dynamic> json) => _$MediaAssetFromJson(json);
 
 @override final  String id;
@@ -269,6 +277,14 @@ class _MediaAsset implements MediaAsset {
 /// Set when the app made this file by text-to-speech (an AI
 /// voiceover line), so it can be re-made with new words or a new voice.
 @override final  SpeechSpec? speech;
+/// A friendlier name than the file's, e.g. a song title.
+@override final  String? name;
+/// Who made it and its license, for music and sounds from Openverse.
+/// Shown in the export dialog so you can credit them.
+@override final  String? credit;
+/// What the assistant saw in a picture you attached, so later
+/// messages can refer to it without sending the picture again.
+@override final  String? description;
 
 /// Create a copy of MediaAsset
 /// with the given fields replaced by the non-null parameter values.
@@ -283,18 +299,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _MediaAsset&&(identical(other.id, id) || other.id == id)&&(identical(other.path, path) || other.path == path)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.hasAudio, hasAudio) || other.hasAudio == hasAudio)&&(identical(other.frameRate, frameRate) || other.frameRate == frameRate)&&(identical(other.title, title) || other.title == title)&&(identical(other.speech, speech) || other.speech == speech));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _MediaAsset&&(identical(other.id, id) || other.id == id)&&(identical(other.path, path) || other.path == path)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.hasAudio, hasAudio) || other.hasAudio == hasAudio)&&(identical(other.frameRate, frameRate) || other.frameRate == frameRate)&&(identical(other.title, title) || other.title == title)&&(identical(other.speech, speech) || other.speech == speech)&&(identical(other.name, name) || other.name == name)&&(identical(other.credit, credit) || other.credit == credit)&&(identical(other.description, description) || other.description == description));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,path,kind,duration,width,height,hasAudio,frameRate,title,speech);
+    return Object.hash(runtimeType,id,path,kind,duration,width,height,hasAudio,frameRate,title,speech,name,credit,description);
 }
 
 @override
 String toString() {
-    return 'MediaAsset(id: $id, path: $path, kind: $kind, duration: $duration, width: $width, height: $height, hasAudio: $hasAudio, frameRate: $frameRate, title: $title, speech: $speech)';
+    return 'MediaAsset(id: $id, path: $path, kind: $kind, duration: $duration, width: $width, height: $height, hasAudio: $hasAudio, frameRate: $frameRate, title: $title, speech: $speech, name: $name, credit: $credit, description: $description)';
 }
 
 
@@ -305,7 +321,7 @@ abstract mixin class _$MediaAssetCopyWith<$Res> implements $MediaAssetCopyWith<$
   factory _$MediaAssetCopyWith(_MediaAsset value, $Res Function(_MediaAsset) _then) = __$MediaAssetCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String path, MediaKind kind,@DurationConverter() Duration duration, int width, int height, bool hasAudio, double frameRate, TitleSpec? title, SpeechSpec? speech
+ String id, String path, MediaKind kind,@DurationConverter() Duration duration, int width, int height, bool hasAudio, double frameRate, TitleSpec? title, SpeechSpec? speech, String? name, String? credit, String? description
 });
 
 
@@ -322,7 +338,7 @@ class __$MediaAssetCopyWithImpl<$Res>
 
 /// Create a copy of MediaAsset
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? path = null,Object? kind = null,Object? duration = null,Object? width = null,Object? height = null,Object? hasAudio = null,Object? frameRate = null,Object? title = freezed,Object? speech = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? path = null,Object? kind = null,Object? duration = null,Object? width = null,Object? height = null,Object? hasAudio = null,Object? frameRate = null,Object? title = freezed,Object? speech = freezed,Object? name = freezed,Object? credit = freezed,Object? description = freezed,}) {
   return _then(_MediaAsset(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
@@ -334,7 +350,10 @@ as int,hasAudio: null == hasAudio ? _self.hasAudio : hasAudio // ignore: cast_nu
 as bool,frameRate: null == frameRate ? _self.frameRate : frameRate // ignore: cast_nullable_to_non_nullable
 as double,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as TitleSpec?,speech: freezed == speech ? _self.speech : speech // ignore: cast_nullable_to_non_nullable
-as SpeechSpec?,
+as SpeechSpec?,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String?,credit: freezed == credit ? _self.credit : credit // ignore: cast_nullable_to_non_nullable
+as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

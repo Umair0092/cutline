@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../music/music_panel.dart';
+
 import '../audio/recording.dart';
 import '../editing/commands.dart';
 import '../editing/project_editor.dart';
@@ -344,12 +346,18 @@ class _ActionBar extends ConsumerWidget {
     final choice = await _choose(context, [
       (Icons.mic_none, 'Record a voiceover', 'record'),
       (Icons.record_voice_over_outlined, 'Voiceover from a script', 'script'),
+      (Icons.library_music_outlined, 'Add music or a sound', 'music'),
+      (Icons.tune, 'Sound levels', 'levels'),
     ]);
     if (!context.mounted) return;
     if (choice == 'record') {
       await ref.read(recordingProvider.notifier).show();
     } else if (choice == 'script') {
       await showVoiceoverDialog(context);
+    } else if (choice == 'music') {
+      await showMusicBrowser(context);
+    } else if (choice == 'levels') {
+      await showMixSheet(context);
     }
   }
 

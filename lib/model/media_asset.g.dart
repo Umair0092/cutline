@@ -23,6 +23,9 @@ _MediaAsset _$MediaAssetFromJson(Map<String, dynamic> json) => _MediaAsset(
   speech: json['speech'] == null
       ? null
       : SpeechSpec.fromJson(json['speech'] as Map<String, dynamic>),
+  name: json['name'] as String?,
+  credit: json['credit'] as String?,
+  description: json['description'] as String?,
 );
 
 Map<String, dynamic> _$MediaAssetToJson(_MediaAsset instance) =>
@@ -37,6 +40,9 @@ Map<String, dynamic> _$MediaAssetToJson(_MediaAsset instance) =>
       'frameRate': instance.frameRate,
       'title': ?instance.title?.toJson(),
       'speech': ?instance.speech?.toJson(),
+      'name': ?instance.name,
+      'credit': ?instance.credit,
+      'description': ?instance.description,
     };
 
 const _$MediaKindEnumMap = {

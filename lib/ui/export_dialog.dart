@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editing/project_editor.dart';
@@ -80,6 +81,12 @@ class _PresetDialog extends StatefulWidget {
 class _PresetDialogState extends State<_PresetDialog> {
   ExportPreset _preset = ExportPreset.hd1080;
 
+  /// Credits for music and sounds that are still in the edit.
+  late final List<String> _credits = {
+    for (final a in widget.project.audio)
+      ?widget.project.mediaById(a.mediaId)?.credit,
+  }.toList();
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -96,6 +103,7 @@ class _PresetDialogState extends State<_PresetDialog> {
                 title: Text(p.label),
                 subtitle: Text(_describe(p)),
               ),
+            if (_credits.isNotEmpty) _Credits(_credits),
           ],
         ),
       ),
@@ -211,6 +219,60 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
             child: const Text('Done'),
           ),
       ],
+    );
+  }
+}
+
+/// Creative Commons tracks ask to be credited: one line each, to paste
+/// into the video's description.
+class _Credits extends StatelessWidget {
+  const _Credits(this.credits);
+
+  final List<String> credits;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = credits.map((c) => 'Music: $c').join('\n');
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Credit the music in your description',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  text,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: const Key('copy-credits'),
+            tooltip: 'Copy',
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Credits copied.')));
+            },
+          ),
+        ],
+      ),
     );
   }
 }

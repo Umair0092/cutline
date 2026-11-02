@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../music/music_panel.dart';
+
 import '../editing/commands.dart';
 import '../editing/edit_command.dart';
 import '../editing/project_editor.dart';
@@ -240,7 +242,7 @@ class AudioInspector extends ConsumerWidget {
   }
 }
 
-/// The audio mix: the video's own sound, the voiceover track, and ducking.
+/// The audio mix: track levels, ducking, and adding music.
 class AudioMixButton extends ConsumerWidget {
   const AudioMixButton({super.key});
 
@@ -250,76 +252,23 @@ class AudioMixButton extends ConsumerWidget {
     return MenuAnchor(
       menuChildren: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: SizedBox(
-            width: 260,
+            width: 320,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Audio mix',
+                  'Sound levels',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Expanded(child: Text('Video sound')),
-                    IconButton(
-                      key: const Key('mute-original'),
-                      tooltip: mix.original == 0 ? 'Unmute' : 'Mute',
-                      icon: Icon(
-                        mix.original == 0 ? Icons.volume_off : Icons.volume_up,
-                        size: 18,
-                      ),
-                      onPressed: () => _run(
-                        context,
-                        ref,
-                        SetAudioMix(
-                          mix.copyWith(original: mix.original == 0 ? 1 : 0),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                CommitSlider(
-                  key: const Key('mix-original'),
-                  icon: Icons.movie_outlined,
-                  tooltip: 'Video sound',
-                  value: mix.original,
-                  min: 0,
-                  max: 2,
-                  width: 200,
-                  onCommit: (v) => _run(
-                    context,
-                    ref,
-                    SetAudioMix(mix.copyWith(original: v)),
-                  ),
-                ),
+                const MixControls(),
                 const SizedBox(height: 4),
-                const Text('Voiceover'),
-                CommitSlider(
-                  key: const Key('mix-voiceover'),
-                  icon: Icons.mic_none,
-                  tooltip: 'Voiceover',
-                  value: mix.voiceover,
-                  min: 0,
-                  max: 2,
-                  width: 200,
-                  onCommit: (v) => _run(
-                    context,
-                    ref,
-                    SetAudioMix(mix.copyWith(voiceover: v)),
-                  ),
-                ),
-                SwitchListTile(
-                  key: const Key('mix-duck'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: const Text('Lower the video while I talk'),
-                  subtitle: const Text('In the export'),
-                  value: mix.duck,
-                  onChanged: (v) =>
-                      _run(context, ref, SetAudioMix(mix.copyWith(duck: v))),
+                FilledButton.tonalIcon(
+                  key: const Key('mix-add-music'),
+                  onPressed: () => showMusicBrowser(context),
+                  icon: const Icon(Icons.library_music_outlined, size: 18),
+                  label: const Text('Add music or a sound…'),
                 ),
               ],
             ),
@@ -328,7 +277,7 @@ class AudioMixButton extends ConsumerWidget {
       ],
       builder: (context, menu, _) => IconButton(
         key: const Key('audio-mix'),
-        tooltip: 'Audio mix',
+        tooltip: 'Sound levels and music',
         icon: Icon(
           mix.original == 0 ? Icons.volume_off_outlined : Icons.tune,
           size: 18,

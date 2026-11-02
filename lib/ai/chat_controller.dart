@@ -7,6 +7,7 @@ import '../editing/edit_command.dart';
 import '../memes/meme_actions.dart';
 import '../memes/meme_search.dart';
 import '../model/overlay_item.dart';
+import '../music/music_library.dart';
 import '../voice/tts.dart';
 import '../voice/voiceover_actions.dart';
 import 'meme_tools.dart';
@@ -26,7 +27,7 @@ import 'edit_tools.dart';
 import 'message_builder.dart';
 import 'project_summary.dart';
 
-enum ChatRole { user, assistant, notice, change, memes, suggestion }
+enum ChatRole { user, assistant, notice, change, memes, suggestion, tracks }
 
 /// One item in the chat panel.
 class ChatEntry {
@@ -38,6 +39,7 @@ class ChatEntry {
     this.undone = false,
     this.memes = const [],
     this.suggestion,
+    this.tracks = const [],
   });
 
   factory ChatEntry.fromJson(Map<String, dynamic> json) => ChatEntry(
@@ -59,6 +61,13 @@ class ChatEntry {
     suggestion: json['suggestion'] == null
         ? null
         : MemeSuggestion.fromJson(json['suggestion'] as Map<String, dynamic>),
+    tracks: [
+      for (final t in json['tracks'] as List<dynamic>? ?? const [])
+        (
+          (t as Map<String, dynamic>)['choice'] as String,
+          Track.fromJson(t['track'] as Map<String, dynamic>),
+        ),
+    ],
   );
 
   final ChatRole role;
@@ -75,6 +84,10 @@ class ChatEntry {
   /// For [ChatRole.suggestion].
   final MemeSuggestion? suggestion;
 
+  /// For [ChatRole.tracks]: music or sounds found, by the id the assistant
+  /// uses.
+  final List<(String, Track)> tracks;
+
   ChatEntry copyWith({bool? undone, MemeSuggestion? suggestion}) => ChatEntry(
     role: role,
     text: text,
@@ -83,6 +96,7 @@ class ChatEntry {
     undone: undone ?? this.undone,
     memes: memes,
     suggestion: suggestion ?? this.suggestion,
+    tracks: tracks,
   );
 
   Map<String, dynamic> toJson() => {
@@ -97,6 +111,11 @@ class ChatEntry {
           {'choice': choice, 'meme': meme.toStoredJson()},
       ],
     if (suggestion != null) 'suggestion': suggestion!.toJson(),
+    if (tracks.isNotEmpty)
+      'tracks': [
+        for (final (choice, track) in tracks)
+          {'choice': choice, 'track': track.toStoredJson()},
+      ],
   };
 }
 
@@ -223,6 +242,8 @@ Memes: add_meme finds and places a meme in one step. "When I talk about deadline
 
 Voiceovers: add_voiceover writes and speaks a script onto the voiceover track. Write it like a person talking: short, plain sentences, one or two per line. To explain a part of the video, time the line with "phrase" (words said there) or "start". Use the system engine unless the user asks for a more natural voice or a Groq voice by name. To change one line ("say the second line slower", "fix the wording"), use remake_voiceover_line on just that line.
 
+Music and sounds: add_music puts background music under the whole video (or a part) from a free Creative Commons library; search it by mood, genre or instrument, never by song or artist name, because famous songs can't be used. If the user names a song, say you can't use copyrighted songs and offer something with the same feel (or they can attach their own file). Pick music that fits the video's mood from the transcript and name. Music is evened out and lowered automatically when anyone talks, so the default level suits most videos; raise "level" for a montage without talking, lower it if the user says the music is too loud. "mix" in the project state has the track levels; for "make my voice louder" raise "video" (their voice is in the video) or "voiceover" if they mean the voiceover, and for "the music is too loud" lower "music" with set_audio_mix. add_sound adds short effects (whoosh, ding, applause) at a moment. Search results show as cards the user can play, so don't list them.
+
 Voice effects: "make my voice deeper" means set_voice_effect on target "video" (the user's voice is in the main video), about -2 semitones for "a bit", -4 for "much". Effects show under "effect" on clips and audio.
 
 Make the edits the user asks for with the tools. If a request is ambiguous (for example, which of two similar moments), ask a short question instead of guessing. If no tool can do what they ask, say so plainly; more tools are being added.
@@ -245,6 +266,9 @@ class ChatController extends Notifier<ChatState> {
   /// Memes from the assistant's searches, by the id it uses ("meme3").
   final _memeChoices = <String, Meme>{};
 
+  /// Music and sounds from its searches ("music2", "sound1").
+  final _trackChoices = <String, Track>{};
+
   /// The project right after each AI change, by entry index, so the change's
   /// Undo button only undoes that change.
   final _changeResults = <int, Project>{};
@@ -264,6 +288,12 @@ class ChatController extends Notifier<ChatState> {
       ..addAll({
         for (final e in chat.entries)
           for (final (id, meme) in e.memes) id: meme,
+      });
+    _trackChoices
+      ..clear()
+      ..addAll({
+        for (final e in chat.entries)
+          for (final (id, track) in e.tracks) id: track,
       });
     state = chat;
   }
@@ -322,6 +352,11 @@ class ChatController extends Notifier<ChatState> {
                   speed: speed,
                   from: from,
                 ),
+      findTracks: ref.read(trackFinderProvider),
+      trackChoices: _trackChoices,
+      trackMedia: workPath == null
+          ? null
+          : (project, track) => trackMedia(project, workPath, track),
       remakeLine: workPath == null
           ? null
           : (project, audioId, spec) async => regenerateLine(
@@ -365,6 +400,7 @@ class ChatController extends Notifier<ChatState> {
     final commands = <EditCommand>[];
     Duration? seekTo;
     final shownMemes = <(String, Meme)>[];
+    final shownTracks = <(String, Track)>[];
     final suggestions = <MemeSuggestion>[];
     final replyText = StringBuffer();
     String? problem;
@@ -413,6 +449,7 @@ class ChatController extends Notifier<ChatState> {
           if (outcome.command != null) commands.add(outcome.command!);
           seekTo = outcome.seekTo ?? seekTo;
           shownMemes.addAll(outcome.memes);
+          shownTracks.addAll(outcome.tracks);
           suggestions.addAll(outcome.suggestions);
           results.add({
             'type': 'tool_result',
@@ -432,6 +469,11 @@ class ChatController extends Notifier<ChatState> {
     final entries = [...state.entries];
     if (shownMemes.isNotEmpty) {
       entries.add(ChatEntry(role: ChatRole.memes, text: '', memes: shownMemes));
+    }
+    if (shownTracks.isNotEmpty) {
+      entries.add(
+        ChatEntry(role: ChatRole.tracks, text: '', tracks: shownTracks),
+      );
     }
     if (replyText.isNotEmpty) {
       entries.add(

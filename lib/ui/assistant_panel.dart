@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../music/track_player.dart';
+
 import '../ai/api_key_store.dart';
 import '../ai/chat_controller.dart';
 import '../ai/meme_tools.dart';
@@ -112,6 +114,14 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
                           ChatRole.memes => _MemeChoices(
                             entry: chat.entries[i],
                             onPick: (id) => _send('Use $id'),
+                          ),
+                          ChatRole.tracks => _TrackChoices(
+                            entry: chat.entries[i],
+                            onPick: (id) => _send(
+                              id.startsWith('sound')
+                                  ? 'Add $id'
+                                  : 'Use $id as the background music',
+                            ),
                           ),
                           ChatRole.suggestion => _SuggestionCard(
                             index: i,
@@ -352,6 +362,100 @@ class _MemeChoices extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Music or sounds the assistant found: play to try one, Use to add it.
+class _TrackChoices extends ConsumerWidget {
+  const _TrackChoices({required this.entry, required this.onPick});
+
+  final ChatEntry entry;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final playing = ref.watch(trackPlayerProvider);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          for (final (i, (id, track)) in entry.tracks.indexed) ...[
+            if (i > 0) Divider(height: 1, color: colors.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: Key('track-play-$id'),
+                    tooltip: playing == id ? 'Stop' : 'Play',
+                    icon: Icon(
+                      playing == id
+                          ? Icons.stop_circle_rounded
+                          : Icons.play_circle_fill_rounded,
+                      color: colors.primary,
+                      size: 30,
+                    ),
+                    onPressed: () => ref
+                        .read(trackPlayerProvider.notifier)
+                        .toggle(id, track.source),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          [
+                            if (track.artist.isNotEmpty) track.artist,
+                            if (track.duration > Duration.zero)
+                              '${track.duration.inMinutes}:'
+                                  '${(track.duration.inSeconds % 60).toString().padLeft(2, '0')}',
+                            if (track.license.isNotEmpty) track.license,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton.tonal(
+                    key: Key('track-use-$id'),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    onPressed: () {
+                      ref.read(trackPlayerProvider.notifier).stop();
+                      onPick(id);
+                    },
+                    child: const Text('Use'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

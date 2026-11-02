@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../media/media_previews.dart';
+import '../model/audio_item.dart';
 import '../model/project.dart';
 import 'timeline_geometry.dart';
 import 'timeline_layout.dart';
@@ -32,7 +33,8 @@ abstract final class TimelineRows {
   static const rowHeight = 22.0;
   static const overlayTop = titleTop + rowHeight + 4;
   static const audioTop = overlayTop + rowHeight + 4;
-  static const height = audioTop + rowHeight + 8;
+  static const musicTop = audioTop + rowHeight + 4;
+  static const height = musicTop + rowHeight + 8;
 }
 
 class TimelineColors {
@@ -47,6 +49,7 @@ class TimelineColors {
     required this.overlay,
     required this.sticker,
     required this.audio,
+    required this.music,
     required this.playhead,
   });
 
@@ -61,6 +64,7 @@ class TimelineColors {
     overlay: c.secondaryContainer,
     sticker: c.primaryContainer,
     audio: c.tertiaryContainer,
+    music: const Color(0xFF1F5C57),
     playhead: c.error,
   );
 
@@ -74,6 +78,7 @@ class TimelineColors {
   final Color overlay;
   final Color sticker;
   final Color audio;
+  final Color music;
   final Color playhead;
 }
 
@@ -365,17 +370,22 @@ class TracksPainter extends CustomPainter {
     for (final a in project.audio) {
       final d = spanDrag?.id == a.id ? spanDrag : null;
       final start = d?.start ?? a.start;
+      final music = a.role == AudioRole.music;
+      final top = music ? TimelineRows.musicTop : TimelineRows.audioTop;
       final rect = Rect.fromLTRB(
         geometry.xOf(start),
-        TimelineRows.audioTop,
+        top,
         geometry.xOf(start + (d?.duration ?? a.duration)),
-        TimelineRows.audioTop + TimelineRows.rowHeight,
+        top + TimelineRows.rowHeight,
       );
+      final media = project.mediaById(a.mediaId);
       _paintLabelledSpan(
         canvas,
         rect,
-        colors.audio,
-        project.mediaById(a.mediaId)?.speech?.text ??
+        music ? colors.music : colors.audio,
+        media?.speech?.text ??
+            (music ? '♪ ${media?.name ?? 'Music'}' : null) ??
+            media?.name ??
             '${a.role.name[0].toUpperCase()}${a.role.name.substring(1)}',
         selected: a.id == selectedAudioId,
       );

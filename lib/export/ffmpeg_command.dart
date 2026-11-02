@@ -106,7 +106,11 @@ List<String> buildExportArgs({
   filters
     ..addAll(extras.filters)
     ..addAll(
-      finalMixFilters(project.mix, (voice: extras.voice, other: extras.other)),
+      finalMixFilters(project.mix, (
+        voice: extras.voice,
+        music: extras.music,
+        other: extras.other,
+      )),
     );
 
   return [

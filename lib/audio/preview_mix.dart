@@ -35,7 +35,13 @@ Future<PreviewMix?> renderPreviewMix({
   required String cacheDir,
 }) async {
   final extras = extraAudioOf(project, projectPath);
-  final full = project.clips.any((c) => !c.effect.isNone);
+  // Music ducked under the video's own speech needs the video's sound in
+  // the mix, so then the whole mix is rendered too.
+  final full =
+      project.clips.any((c) => !c.effect.isNone) ||
+      (project.mix.duckMusic &&
+          project.mix.original > 0 &&
+          extras.any((e) => e.music));
   if ((extras.isEmpty && !full) || project.duration <= Duration.zero) {
     return null;
   }
@@ -45,8 +51,8 @@ Future<PreviewMix?> renderPreviewMix({
         utf8.encode(
           jsonEncode([
             total,
+            project.mix.toJson(),
             if (full) ...[
-              project.mix.toJson(),
               for (final c in project.clips) ...[
                 c.toJson(),
                 project.mediaById(c.mediaId)?.path,
@@ -64,6 +70,8 @@ Future<PreviewMix?> renderPreviewMix({
                 e.fadeIn.inMicroseconds,
                 e.fadeOut.inMicroseconds,
                 e.effect.toJson(),
+                e.voice,
+                e.music,
               ],
           ]),
         ),
@@ -105,11 +113,26 @@ Future<PreviewMix?> renderPreviewMix({
   if (full) {
     filters
       ..addAll(
-        finalMixFilters(project.mix, (voice: graph.voice, other: graph.other)),
+        finalMixFilters(project.mix, (
+          voice: graph.voice,
+          music: graph.music,
+          other: graph.other,
+        )),
       )
       ..add('[aout]apad=whole_dur=$total,atrim=duration=$total[mix]');
   } else {
-    final layers = [?graph.voice, ?graph.other];
+    // Without the video's sound there's nothing to duck the music under
+    // except voiceovers.
+    final mixed = finalMixFilters(project.mix.copyWith(original: 0), (
+      voice: graph.voice,
+      music: graph.music,
+      other: graph.other,
+    ));
+    filters.addAll([
+      'anullsrc=r=48000:cl=stereo,atrim=duration=$total[amain]',
+      ...mixed,
+    ]);
+    final layers = ['aout'];
     filters.add(
       '${[for (final l in layers) '[$l]'].join()}'
       '${layers.length == 1 ? 'anull' : 'amix=inputs=${layers.length}:normalize=0:duration=longest:dropout_transition=0'},'

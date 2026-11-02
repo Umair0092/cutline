@@ -17,8 +17,11 @@ T _$identity<T>(T value) => value;
 mixin _$AudioMix {
 
 /// The main track's sound (0 mutes it).
- double get original; double get voiceover;/// Lower the original sound while a voiceover plays ("ducking").
- bool get duck;
+ double get original; double get voiceover;/// The music track. Music is evened out first (see audio_mix.dart), so
+/// 1 sits a little under normal speech and the default is a quiet bed.
+ double get music;/// Lower the original sound while a voiceover plays ("ducking").
+ bool get duck;/// Lower the music while anyone talks: you in the video or a voiceover.
+ bool get duckMusic;
 /// Create a copy of AudioMix
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -32,20 +35,20 @@ $AudioMixCopyWith<AudioMix> get copyWith => _$AudioMixCopyWithImpl<AudioMix>(thi
 @override
 bool operator ==(Object other) {
   final _this = this as AudioMix;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AudioMix&&(identical(other.original, _this.original) || other.original == _this.original)&&(identical(other.voiceover, _this.voiceover) || other.voiceover == _this.voiceover)&&(identical(other.duck, _this.duck) || other.duck == _this.duck));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AudioMix&&(identical(other.original, _this.original) || other.original == _this.original)&&(identical(other.voiceover, _this.voiceover) || other.voiceover == _this.voiceover)&&(identical(other.music, _this.music) || other.music == _this.music)&&(identical(other.duck, _this.duck) || other.duck == _this.duck)&&(identical(other.duckMusic, _this.duckMusic) || other.duckMusic == _this.duckMusic));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as AudioMix;
-  return Object.hash(runtimeType,_this.original,_this.voiceover,_this.duck);
+  return Object.hash(runtimeType,_this.original,_this.voiceover,_this.music,_this.duck,_this.duckMusic);
 }
 
 @override
 String toString() {
   final _this = this as AudioMix;
-  return 'AudioMix(original: ${_this.original}, voiceover: ${_this.voiceover}, duck: ${_this.duck})';
+  return 'AudioMix(original: ${_this.original}, voiceover: ${_this.voiceover}, music: ${_this.music}, duck: ${_this.duck}, duckMusic: ${_this.duckMusic})';
 }
 
 
@@ -56,7 +59,7 @@ abstract mixin class $AudioMixCopyWith<$Res>  {
   factory $AudioMixCopyWith(AudioMix value, $Res Function(AudioMix) _then) = _$AudioMixCopyWithImpl;
 @useResult
 $Res call({
- double original, double voiceover, bool duck
+ double original, double voiceover, double music, bool duck, bool duckMusic
 });
 
 
@@ -73,11 +76,13 @@ class _$AudioMixCopyWithImpl<$Res>
 
 /// Create a copy of AudioMix
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? original = null,Object? voiceover = null,Object? duck = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? original = null,Object? voiceover = null,Object? music = null,Object? duck = null,Object? duckMusic = null,}) {
   return _then(AudioMix(
 original: null == original ? _self.original : original // ignore: cast_nullable_to_non_nullable
 as double,voiceover: null == voiceover ? _self.voiceover : voiceover // ignore: cast_nullable_to_non_nullable
+as double,music: null == music ? _self.music : music // ignore: cast_nullable_to_non_nullable
 as double,duck: null == duck ? _self.duck : duck // ignore: cast_nullable_to_non_nullable
+as bool,duckMusic: null == duckMusic ? _self.duckMusic : duckMusic // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -163,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double original,  double voiceover,  bool duck)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double original,  double voiceover,  double music,  bool duck,  bool duckMusic)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AudioMix() when $default != null:
-return $default(_that.original,_that.voiceover,_that.duck);case _:
+return $default(_that.original,_that.voiceover,_that.music,_that.duck,_that.duckMusic);case _:
   return orElse();
 
 }
@@ -184,10 +189,10 @@ return $default(_that.original,_that.voiceover,_that.duck);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double original,  double voiceover,  bool duck)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double original,  double voiceover,  double music,  bool duck,  bool duckMusic)  $default,) {final _that = this;
 switch (_that) {
 case _AudioMix():
-return $default(_that.original,_that.voiceover,_that.duck);case _:
+return $default(_that.original,_that.voiceover,_that.music,_that.duck,_that.duckMusic);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +209,10 @@ return $default(_that.original,_that.voiceover,_that.duck);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double original,  double voiceover,  bool duck)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double original,  double voiceover,  double music,  bool duck,  bool duckMusic)?  $default,) {final _that = this;
 switch (_that) {
 case _AudioMix() when $default != null:
-return $default(_that.original,_that.voiceover,_that.duck);case _:
+return $default(_that.original,_that.voiceover,_that.music,_that.duck,_that.duckMusic);case _:
   return null;
 
 }
@@ -219,14 +224,19 @@ return $default(_that.original,_that.voiceover,_that.duck);case _:
 @JsonSerializable()
 
 class _AudioMix implements AudioMix {
-  const _AudioMix({this.original = 1.0, this.voiceover = 1.0, this.duck = true});
+  const _AudioMix({this.original = 1.0, this.voiceover = 1.0, this.music = 0.6, this.duck = true, this.duckMusic = true});
   factory _AudioMix.fromJson(Map<String, dynamic> json) => _$AudioMixFromJson(json);
 
 /// The main track's sound (0 mutes it).
 @override@JsonKey() final  double original;
 @override@JsonKey() final  double voiceover;
+/// The music track. Music is evened out first (see audio_mix.dart), so
+/// 1 sits a little under normal speech and the default is a quiet bed.
+@override@JsonKey() final  double music;
 /// Lower the original sound while a voiceover plays ("ducking").
 @override@JsonKey() final  bool duck;
+/// Lower the music while anyone talks: you in the video or a voiceover.
+@override@JsonKey() final  bool duckMusic;
 
 /// Create a copy of AudioMix
 /// with the given fields replaced by the non-null parameter values.
@@ -241,18 +251,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AudioMix&&(identical(other.original, original) || other.original == original)&&(identical(other.voiceover, voiceover) || other.voiceover == voiceover)&&(identical(other.duck, duck) || other.duck == duck));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AudioMix&&(identical(other.original, original) || other.original == original)&&(identical(other.voiceover, voiceover) || other.voiceover == voiceover)&&(identical(other.music, music) || other.music == music)&&(identical(other.duck, duck) || other.duck == duck)&&(identical(other.duckMusic, duckMusic) || other.duckMusic == duckMusic));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,original,voiceover,duck);
+    return Object.hash(runtimeType,original,voiceover,music,duck,duckMusic);
 }
 
 @override
 String toString() {
-    return 'AudioMix(original: $original, voiceover: $voiceover, duck: $duck)';
+    return 'AudioMix(original: $original, voiceover: $voiceover, music: $music, duck: $duck, duckMusic: $duckMusic)';
 }
 
 
@@ -263,7 +273,7 @@ abstract mixin class _$AudioMixCopyWith<$Res> implements $AudioMixCopyWith<$Res>
   factory _$AudioMixCopyWith(_AudioMix value, $Res Function(_AudioMix) _then) = __$AudioMixCopyWithImpl;
 @override @useResult
 $Res call({
- double original, double voiceover, bool duck
+ double original, double voiceover, double music, bool duck, bool duckMusic
 });
 
 
@@ -280,11 +290,13 @@ class __$AudioMixCopyWithImpl<$Res>
 
 /// Create a copy of AudioMix
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? original = null,Object? voiceover = null,Object? duck = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? original = null,Object? voiceover = null,Object? music = null,Object? duck = null,Object? duckMusic = null,}) {
   return _then(_AudioMix(
 original: null == original ? _self.original : original // ignore: cast_nullable_to_non_nullable
 as double,voiceover: null == voiceover ? _self.voiceover : voiceover // ignore: cast_nullable_to_non_nullable
+as double,music: null == music ? _self.music : music // ignore: cast_nullable_to_non_nullable
 as double,duck: null == duck ? _self.duck : duck // ignore: cast_nullable_to_non_nullable
+as bool,duckMusic: null == duckMusic ? _self.duckMusic : duckMusic // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

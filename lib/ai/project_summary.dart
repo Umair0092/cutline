@@ -68,6 +68,8 @@ Map<String, dynamic> projectSummary(
             'role': a.role.name,
             'start': _s(a.start),
             'end': _s(a.end),
+            'title': ?project.mediaById(a.mediaId)?.name,
+            if (a.volume != 1) 'volume': _s2(a.volume),
             if (!a.effect.isNone) 'effect': _effect(a.effect),
             if (project.mediaById(a.mediaId)?.speech case final speech?) ...{
               'text': speech.text,
@@ -77,6 +79,13 @@ Map<String, dynamic> projectSummary(
             },
           },
       ],
+    'mix': {
+      'video': _s2(project.mix.original),
+      'voiceover': _s2(project.mix.voiceover),
+      'music': _s2(project.mix.music),
+      'duck_video': project.mix.duck,
+      'duck_music': project.mix.duckMusic,
+    },
     if (project.titles.isNotEmpty)
       'titles': [
         for (final t in project.titles)

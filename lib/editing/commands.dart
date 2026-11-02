@@ -489,7 +489,9 @@ class SetAudioMix extends EditCommand {
     if (mix.original < 0 ||
         mix.original > 2 ||
         mix.voiceover < 0 ||
-        mix.voiceover > 2) {
+        mix.voiceover > 2 ||
+        mix.music < 0 ||
+        mix.music > 2) {
       throw EditException('Volume must be between 0 and 2.');
     }
     return project.copyWith(mix: mix);

@@ -9,13 +9,17 @@ part of 'audio_item.dart';
 _AudioMix _$AudioMixFromJson(Map<String, dynamic> json) => _AudioMix(
   original: (json['original'] as num?)?.toDouble() ?? 1.0,
   voiceover: (json['voiceover'] as num?)?.toDouble() ?? 1.0,
+  music: (json['music'] as num?)?.toDouble() ?? 0.6,
   duck: json['duck'] as bool? ?? true,
+  duckMusic: json['duckMusic'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$AudioMixToJson(_AudioMix instance) => <String, dynamic>{
   'original': instance.original,
   'voiceover': instance.voiceover,
+  'music': instance.music,
   'duck': instance.duck,
+  'duckMusic': instance.duckMusic,
 };
 
 _AudioItem _$AudioItemFromJson(Map<String, dynamic> json) => _AudioItem(

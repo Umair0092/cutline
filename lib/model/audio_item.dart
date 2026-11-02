@@ -7,7 +7,7 @@ part 'audio_item.freezed.dart';
 part 'audio_item.g.dart';
 
 /// How the tracks are mixed: the video's own sound, the voiceover track,
-/// and whether the video gets quieter while the voiceover plays.
+/// background music, and what gets quieter when someone talks.
 @freezed
 abstract class AudioMix with _$AudioMix {
   const factory AudioMix({
@@ -15,8 +15,15 @@ abstract class AudioMix with _$AudioMix {
     @Default(1.0) double original,
     @Default(1.0) double voiceover,
 
+    /// The music track. Music is evened out first (see audio_mix.dart), so
+    /// 1 sits a little under normal speech and the default is a quiet bed.
+    @Default(0.6) double music,
+
     /// Lower the original sound while a voiceover plays ("ducking").
     @Default(true) bool duck,
+
+    /// Lower the music while anyone talks: you in the video or a voiceover.
+    @Default(true) bool duckMusic,
   }) = _AudioMix;
 
   factory AudioMix.fromJson(Map<String, dynamic> json) =>
