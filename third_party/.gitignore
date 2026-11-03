@@ -1,4 +1,4 @@
 # Downloaded or built by the tool/ scripts
-/ffmpeg/
-/whisper/
+/ffmpeg
+/whisper
 /.cache/
