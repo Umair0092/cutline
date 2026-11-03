@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:cutline/ui/widgets/cut_widgets.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,6 +16,24 @@ Future<void> saveScreenshot(
 }) async {
   final dir = Platform.environment['SCREENSHOT_DIR'];
   if (dir == null) return;
+  // Capturing a frame offscreen while backdrop blurs sit over the video
+  // texture can stall for good, so glass is drawn without blur while the
+  // picture is taken (it looks almost the same on these dark surfaces).
+  GlassPanel.debugNoBlur.value = true;
+  await tester.pump();
+  try {
+    await _save(tester, dir, name, settle);
+  } finally {
+    GlassPanel.debugNoBlur.value = false;
+  }
+}
+
+Future<void> _save(
+  WidgetTester tester,
+  String dir,
+  String name,
+  bool settle,
+) async {
   if (settle) {
     await tester.pumpAndSettle();
   } else {

@@ -119,8 +119,17 @@ class GlassPanel extends StatelessWidget {
   final double blur;
   final Color tint;
 
+  /// Draws glass without the blur. For screenshot tests: capturing a frame
+  /// offscreen with several backdrop blurs can stall.
+  static final debugNoBlur = ValueNotifier(false);
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: debugNoBlur,
+    builder: (context, noBlur, _) => _build(context, noBlur),
+  );
+
+  Widget _build(BuildContext context, bool noBlur) {
     final r = borderRadius ?? BorderRadius.circular(radius);
     final decoration = BoxDecoration(
       borderRadius: r,
@@ -150,7 +159,7 @@ class GlassPanel extends StatelessWidget {
         child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
       ),
     );
-    if (reduceEffects(context)) {
+    if (reduceEffects(context) || noBlur) {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: Cut.surface3.withValues(alpha: 0.96),

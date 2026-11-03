@@ -542,16 +542,21 @@ class _Time extends ConsumerWidget {
   }
 }
 
-/// On a phone: a small glass chip over the video with the time.
+/// On a phone: a small dark chip over the video with the time. Solid, not
+/// blurred: blurring the live video texture is expensive on phones and
+/// can stall frame capture.
 class _TimecodeChip extends StatelessWidget {
   const _TimecodeChip();
 
   @override
-  Widget build(BuildContext context) => const GlassPanel(
-    radius: CutRadii.pill,
-    blur: 16,
-    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    child: _Time(compact: true),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xB3121019),
+      borderRadius: BorderRadius.circular(CutRadii.pill),
+      border: Border.all(color: const Color(0x24FFFFFF)),
+    ),
+    child: const _Time(compact: true),
   );
 }
 
