@@ -359,11 +359,6 @@ class TrackHeaders extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Icon(
-                              _icons[i],
-                              size: 13,
-                              color: Cut.textTertiary.withValues(alpha: 0.7),
-                            ),
                           ],
                         ),
                       ),

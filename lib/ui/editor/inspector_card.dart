@@ -36,7 +36,14 @@ class InspectorCard extends StatelessWidget {
   final Widget? footer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    // In a narrow window the controls go in one sideways-scrolling row,
+    // so the card stays short and the video keeps its room.
+    builder: (context, box) =>
+        _build(context, isCompact(context) || box.maxWidth < 900),
+  );
+
+  Widget _build(BuildContext context, bool oneRow) {
     final compact = isCompact(context);
     final badge = Container(
       width: 28,
@@ -78,7 +85,7 @@ class InspectorCard extends StatelessWidget {
       children: [badge, const SizedBox(width: 10), name],
     );
     final Widget body;
-    if (compact) {
+    if (oneRow) {
       body = Row(
         children: [
           Expanded(

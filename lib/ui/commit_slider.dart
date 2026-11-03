@@ -80,10 +80,10 @@ class _CommitSliderState extends State<CommitSlider> {
           ),
           if (widget.format != null)
             SizedBox(
-              width: 40,
+              width: 44,
               child: Text(
                 widget.format!(value),
-                textAlign: TextAlign.right,
+                textAlign: TextAlign.left,
                 style: CutType.timecode.copyWith(
                   fontSize: 11,
                   color: _dragging != null ? Cut.textPrimary : Cut.textTertiary,

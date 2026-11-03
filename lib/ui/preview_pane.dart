@@ -346,11 +346,11 @@ class _AmbientGlowState extends ConsumerState<_AmbientGlow> {
             ? const SizedBox.expand()
             : Opacity(
                 key: ValueKey(image),
-                opacity: 0.42,
+                opacity: 0.3,
                 child: ImageFiltered(
                   imageFilter: ui.ImageFilter.blur(
-                    sigmaX: 48,
-                    sigmaY: 48,
+                    sigmaX: 56,
+                    sigmaY: 56,
                     tileMode: TileMode.decal,
                   ),
                   child: RawImage(
