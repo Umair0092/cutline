@@ -25,8 +25,9 @@ class CutlineWordmark extends StatelessWidget {
   final double letters;
   final double? shimmer;
 
-  /// What's behind the mark. When given, the line gets a thin gap of this
-  /// colour on each side, so it reads as a cut through the letters.
+  /// When given, the letters are cut open around the line (a thin gap on
+  /// each side), so it reads as a cut rather than a strike-through. Any
+  /// colour works: the gap is see-through.
   final Color? background;
   final Color color;
 
@@ -51,8 +52,8 @@ class CutlineWordmark extends StatelessWidget {
       return ((letters - start) / span).clamp(0.0, 1.0);
     }
 
-    final barHeight = (size * 0.075).clamp(2.0, 6.0);
-    final gap = background == null ? 0.0 : (size * 0.03).clamp(1.0, 2.5);
+    final barHeight = (size * 0.055).clamp(2.0, 4.5);
+    final gap = background == null ? 0.0 : (size * 0.035).clamp(1.0, 3.0);
     // The x-height of Bricolage sits at about 0.42–0.80 of the em box with
     // height 1; the line cuts just under the middle of it.
     final top = size * 0.60 - barHeight / 2;
@@ -66,42 +67,43 @@ class CutlineWordmark extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Padding(
-              // Room on the right for the line's overhang.
-              padding: EdgeInsets.only(right: overhang),
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    for (final (i, ch) in word.split('').indexed)
-                      TextSpan(
-                        text: ch,
-                        style: style.copyWith(
-                          color: color.withValues(alpha: color.a * alpha(i)),
+            ClipPath(
+              clipper: _BandClipper(
+                top: top - gap,
+                height: barHeight + gap * 2,
+              ),
+              child: Padding(
+                // Room on the right for the line's overhang.
+                padding: EdgeInsets.only(right: overhang),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      for (final (i, ch) in word.split('').indexed)
+                        TextSpan(
+                          text: ch,
+                          style: style.copyWith(
+                            color: color.withValues(alpha: color.a * alpha(i)),
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-                textHeightBehavior: const TextHeightBehavior(
-                  applyHeightToFirstAscent: false,
-                  applyHeightToLastDescent: false,
+                    ],
+                  ),
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
                 ),
               ),
             ),
             Positioned(
               left: -size * 0.02,
               right: 0,
-              top: top - gap,
-              height: barHeight + gap * 2,
+              top: top,
+              height: barHeight,
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
                   widthFactor: line.clamp(0.0, 1.0),
-                  child: _CutLine(
-                    height: barHeight,
-                    gap: gap,
-                    background: background,
-                    shimmer: shimmer,
-                  ),
+                  child: _CutLine(height: barHeight, shimmer: shimmer),
                 ),
               ),
             ),
@@ -113,16 +115,9 @@ class CutlineWordmark extends StatelessWidget {
 }
 
 class _CutLine extends StatelessWidget {
-  const _CutLine({
-    required this.height,
-    required this.gap,
-    required this.background,
-    required this.shimmer,
-  });
+  const _CutLine({required this.height, required this.shimmer});
 
   final double height;
-  final double gap;
-  final Color? background;
   final double? shimmer;
 
   @override
@@ -162,13 +157,28 @@ class _CutLine extends StatelessWidget {
         ],
       );
     }
-    if (background == null) return bar;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(height + gap),
-      ),
-      child: Padding(padding: EdgeInsets.all(gap), child: bar),
+    return bar;
+  }
+}
+
+/// Everything except a horizontal band: the gap the line cuts.
+class _BandClipper extends CustomClipper<Path> {
+  _BandClipper({required this.top, required this.height});
+
+  final double top;
+  final double height;
+
+  @override
+  Path getClip(Size size) {
+    final all = Rect.fromLTWH(-20, -20, size.width + 40, size.height + 40);
+    if (height <= 0) return Path()..addRect(all);
+    return Path.combine(
+      PathOperation.difference,
+      Path()..addRect(all),
+      Path()..addRect(Rect.fromLTWH(-20, top, size.width + 40, height)),
     );
   }
+
+  @override
+  bool shouldReclip(_BandClipper old) => old.top != top || old.height != height;
 }

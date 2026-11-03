@@ -92,15 +92,19 @@ class _StartHeroState extends ConsumerState<StartHero> {
   }
 
   Widget _chips({bool wrap = true}) {
+    final photos = PromptChip(
+      key: const Key('start-photos-chip'),
+      label: 'Photos → video',
+      icon: CutIcons.image,
+      onTap: _photos,
+    );
     final chips = [
+      // On phones the chips scroll sideways, so the photo start (the only
+      // way in without a video) goes first where it's seen.
+      if (!wrap) photos,
       for (final (label, prompt) in startPrompts)
         PromptChip(label: label, ai: true, onTap: () => _video(prompt)),
-      PromptChip(
-        key: const Key('start-photos-chip'),
-        label: 'Photos → video',
-        icon: CutIcons.image,
-        onTap: _photos,
-      ),
+      if (wrap) photos,
     ];
     if (wrap) {
       return Wrap(spacing: 8, runSpacing: 8, children: chips);
@@ -294,7 +298,10 @@ class _StartHeroState extends ConsumerState<StartHero> {
             compact ? 20 : 32,
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(width: double.infinity),
               Container(
                 width: compact ? 76 : 92,
                 height: compact ? 76 : 92,

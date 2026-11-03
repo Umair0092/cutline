@@ -811,43 +811,65 @@ class _StatusRow extends StatelessWidget {
   final List<Widget> actions;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-    decoration: BoxDecoration(
-      color: ok ? Cut.successContainer : Cut.surface2,
-      borderRadius: BorderRadius.circular(CutRadii.md),
-      border: Border.all(
-        color: ok ? Cut.success.withValues(alpha: 0.25) : Cut.strokeSubtle,
-      ),
-    ),
-    child: Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      runSpacing: 4,
+  Widget build(BuildContext context) {
+    final message = Row(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              ok ? CutIcons.checkCircle : CutIcons.key,
-              size: 16,
+        Icon(
+          ok ? CutIcons.checkCircle : CutIcons.key,
+          size: 16,
+          color: ok ? Cut.success : Cut.textSecondary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: CutType.label.copyWith(
               color: ok ? Cut.success : Cut.textSecondary,
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                text,
-                style: CutType.label.copyWith(
-                  color: ok ? Cut.success : Cut.textSecondary,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-        Row(mainAxisSize: MainAxisSize.min, children: actions),
       ],
-    ),
-  );
+    );
+    final buttons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, a) in actions.indexed) ...[
+          if (i > 0) const SizedBox(width: 6),
+          a,
+        ],
+      ],
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: ok ? Cut.successContainer : Cut.surface2,
+        borderRadius: BorderRadius.circular(CutRadii.md),
+        border: Border.all(
+          color: ok ? Cut.success.withValues(alpha: 0.25) : Cut.strokeSubtle,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, box) => box.maxWidth < 460
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: message,
+                  ),
+                  Align(alignment: Alignment.centerRight, child: buttons),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: message),
+                  const SizedBox(width: 12),
+                  buttons,
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 class _ActionTile extends StatelessWidget {
