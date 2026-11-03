@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../tokens.dart';
 
 /// The "cutline" wordmark: Bricolage Grotesque 800 with a thin aurora line
-/// cutting through the letters at x-height.
+/// cutting along the baseline.
 ///
 /// The animation values let the splash draw it in: [line] is how far the
 /// cut line has drawn (0–1), [letters] fades the letters in one after
@@ -53,10 +53,11 @@ class CutlineWordmark extends StatelessWidget {
     }
 
     final barHeight = (size * 0.055).clamp(2.0, 4.5);
-    final gap = background == null ? 0.0 : (size * 0.035).clamp(1.0, 3.0);
-    // The x-height of Bricolage sits at about 0.42–0.80 of the em box with
-    // height 1; the line cuts just under the middle of it.
-    final top = size * 0.60 - barHeight / 2;
+    // The line runs along the baseline, slicing the feet of the letters, so
+    // the word stays easy to read at any size. (Through the middle it read
+    // as crossed out.)
+    final gap = background == null ? 0.0 : (size * 0.03).clamp(1.0, 2.5);
+    final top = size * 0.80 - barHeight / 2;
     final overhang = size * 0.10;
 
     return Semantics(
