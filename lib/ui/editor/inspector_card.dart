@@ -89,16 +89,24 @@ class InspectorCard extends StatelessWidget {
       body = Row(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  head,
-                  for (final c in children) ...[
-                    const SizedBox(width: CutSpace.s4),
-                    c,
+            // Fades out at the right edge to say "there's more this way".
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (r) => const LinearGradient(
+                colors: [Colors.white, Colors.white, Color(0x00FFFFFF)],
+                stops: [0, 0.92, 1],
+              ).createShader(r),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    head,
+                    for (final c in children) ...[
+                      const SizedBox(width: CutSpace.s4),
+                      c,
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

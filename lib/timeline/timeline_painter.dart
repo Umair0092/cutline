@@ -356,8 +356,8 @@ class TracksPainter extends CustomPainter {
       _label(
         canvas,
         name,
-        Offset(rect.left + 7, rect.top + 4),
-        rect.width - 14,
+        Offset(rect.left + (selected ? 13 : 7), rect.top + 4),
+        rect.width - (selected ? 26 : 14),
         intro ? _ink(color) : Cut.textPrimary,
         mono: !intro,
       );
