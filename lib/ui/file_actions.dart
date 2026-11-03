@@ -9,7 +9,10 @@ import '../ai/chat_controller.dart';
 import '../editing/project_editor.dart';
 import '../storage/chat_store.dart';
 import '../storage/project_store.dart';
+import 'dialogs/dialog_kit.dart';
 import 'navigation.dart';
+import 'widgets/cut_icons.dart';
+import 'widgets/cut_widgets.dart';
 
 const _projectType = XTypeGroup(
   label: 'Cutline project',
@@ -108,23 +111,31 @@ class FileActions {
     if (!_state.hasUnsavedChanges) return true;
     final choice = await showDialog<_DiscardChoice>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Save changes to "${_state.project.name}"?'),
-        content: const Text('Your changes will be lost if you don\'t save.'),
+      builder: (context) => CutDialog(
+        width: 460,
+        icon: CutIcons.warning,
+        title: 'Save your changes?',
+        subtitle:
+            '"${_state.project.name}" has edits that aren\'t saved yet. '
+            'They\'ll be lost if you don\'t save.',
         actions: [
-          TextButton(
+          QuietButton(
+            label: 'Don\'t Save',
+            danger: true,
+            transparent: true,
             onPressed: () => Navigator.pop(context, _DiscardChoice.discard),
-            child: const Text('Don\'t Save'),
           ),
-          TextButton(
+          QuietButton(
+            label: 'Cancel',
             onPressed: () => Navigator.pop(context, _DiscardChoice.cancel),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          PrimaryButton(
+            key: const Key('discard-save'),
+            label: 'Save',
             onPressed: () => Navigator.pop(context, _DiscardChoice.save),
-            child: const Text('Save'),
           ),
         ],
+        child: const SizedBox.shrink(),
       ),
     );
     return switch (choice) {
