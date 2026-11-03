@@ -277,6 +277,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: CutMotion.fast,
+                        layoutBuilder: (current, previous) => Stack(
+                          alignment: Alignment.topCenter,
+                          children: [...previous, ?current],
+                        ),
                         child: SingleChildScrollView(
                           key: ValueKey(page),
                           padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
@@ -340,7 +344,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            _status(compact: true),
+            _status(),
             const SizedBox(height: CutSpace.s5),
             _InsetGroup(
               children: [

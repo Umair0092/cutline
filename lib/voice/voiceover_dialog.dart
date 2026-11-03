@@ -99,7 +99,10 @@ class _VoiceoverDialogState extends ConsumerState<VoiceoverDialog> {
 
   @override
   void dispose() {
-    if (_played) unawaited(_player.stop());
+    if (_played) {
+      final player = _player;
+      unawaited(Future(player.stop));
+    }
     try {
       _previewDir?.deleteSync(recursive: true);
     } on Object {

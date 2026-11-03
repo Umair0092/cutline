@@ -453,7 +453,9 @@ class _MusicBrowserState extends ConsumerState<_MusicBrowser> {
 
   @override
   void dispose() {
-    unawaited(_player.stop());
+    // Stop the preview after the tree settles; providers can't change mid-unmount.
+    final player = _player;
+    unawaited(Future(player.stop));
     _query.dispose();
     super.dispose();
   }
@@ -694,19 +696,21 @@ class _MusicBrowserState extends ConsumerState<_MusicBrowser> {
       ),
       footer: Row(
         children: [
-          Flexible(
-            child: QuietButton(
-              key: const Key('music-file'),
-              label: 'Use a file of my own',
-              icon: DialogIcons.fileAudio,
-              onPressed: _adding == null ? _pickFile : null,
-            ),
+          QuietButton(
+            key: const Key('music-file'),
+            label: 'Use a file of my own',
+            icon: DialogIcons.fileAudio,
+            onPressed: _adding == null ? _pickFile : null,
           ),
           if (!phone) ...[
-            const Spacer(),
-            Text(
-              'From Openverse · credits are listed when you export',
-              style: CutType.caption.copyWith(color: Cut.textTertiary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'From Openverse · credits are listed when you export',
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                style: CutType.caption.copyWith(color: Cut.textTertiary),
+              ),
             ),
           ],
         ],

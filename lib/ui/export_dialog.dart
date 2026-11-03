@@ -243,7 +243,11 @@ class _ExportDialogState extends State<ExportDialog> {
         CutIcons.export,
       ),
       _Phase.running => ('Exporting…', 'Keep Cutline open', CutIcons.export),
-      _Phase.done => ('Exported', p.basename(_job!.outputPath), CutIcons.check),
+      _Phase.done => (
+        'Exported',
+        p.basename(_job!.outputPath),
+        CutIcons.export,
+      ),
       _Phase.failed => ('Export failed', 'Nothing was saved', CutIcons.warning),
     };
     return PopScope(

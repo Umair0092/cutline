@@ -368,8 +368,8 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
 
   /// The live preview: the title playing on a dark stage (a checkerboard
   /// shows where an overlay is see-through).
-  Widget _stage() => Center(
-    child: AspectRatio(
+  Widget _stage() => _centerIfDesktop(
+    AspectRatio(
       aspectRatio: widget.aspectRatio,
       child: Container(
         key: const Key('title-preview'),
@@ -413,6 +413,9 @@ class _TitleEditorDialogState extends State<TitleEditorDialog>
       ),
     ),
   );
+
+  Widget _centerIfDesktop(Widget child) =>
+      isPhoneLayout(context) ? child : Center(child: child);
 
   Widget _transport() => Row(
     children: [
