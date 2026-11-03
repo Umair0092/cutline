@@ -105,6 +105,18 @@ abstract final class CutIcons {
 
   // Home
   static const filmFill = IconData(0xe8c0, fontFamily: 'PhosphorFill');
+
+  // Editor (preview, timeline, inspectors)
+  static const ambient = IconData(0xe472, fontFamily: 'PhosphorRegular');
+  static const ambientFill = IconData(0xe472, fontFamily: 'PhosphorFill');
+  static const opacity = IconData(0xe210, fontFamily: 'PhosphorRegular');
+  static const rotate = IconData(0xe036, fontFamily: 'PhosphorRegular');
+  static const fadeIn = IconData(0xe4ae, fontFamily: 'PhosphorRegular');
+  static const fadeOut = IconData(0xe4ac, fontFamily: 'PhosphorRegular');
+  static const pitch = IconData(0xe098, fontFamily: 'PhosphorRegular');
+  static const speed = IconData(0xe628, fontFamily: 'PhosphorRegular');
+  static const animation = IconData(0xe2de, fontFamily: 'PhosphorRegular');
+  static const grip = IconData(0xeae2, fontFamily: 'PhosphorRegular');
 }
 
 /// Size presets.

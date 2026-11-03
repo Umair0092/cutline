@@ -15,6 +15,7 @@ import '../preview/playhead_clock.dart';
 import '../preview/preview_controller.dart';
 import '../storage/project_store.dart';
 import '../timeline/timeline_state.dart';
+import '../ui/tokens.dart';
 import 'overlay_frames.dart';
 import 'overlay_paint.dart';
 
@@ -25,7 +26,11 @@ const _handleRadius = 12.0;
 /// you click one to select it, drag it to move it and drag its corner to
 /// resize it. A drag is one undo step.
 class OverlayLayer extends ConsumerStatefulWidget {
-  const OverlayLayer({super.key});
+  const OverlayLayer({super.key, this.onTapEmpty});
+
+  /// A tap on the video away from any overlay, with nothing selected
+  /// (the preview uses it to play and pause).
+  final VoidCallback? onTapEmpty;
 
   @override
   ConsumerState<OverlayLayer> createState() => _OverlayLayerState();
@@ -77,15 +82,28 @@ class _OverlayLayerState extends ConsumerState<OverlayLayer>
     return null;
   }
 
-  /// The selected overlay if [at] is on its resize handle.
-  OverlayItem? _onHandle(Offset at, Size size) {
+  /// The selected overlay if [at] is on one of its corner handles, and
+  /// whether that corner is top-left or bottom-right (for the cursor).
+  ({OverlayItem item, bool falling})? _onHandleAt(Offset at, Size size) {
     final id = ref.read(timelineUiProvider).selectedOverlayId;
     final o = _onScreen().where((o) => o.id == id).firstOrNull;
     if (o == null) return null;
     final rect = overlayRect(size, _aspect(o), o.transform);
-    final corner = rotateAround(rect.bottomRight, rect, o.transform.rotation);
-    return (corner - at).distance <= _handleRadius ? o : null;
+    for (final (c, falling) in [
+      (rect.bottomRight, true),
+      (rect.topLeft, true),
+      (rect.topRight, false),
+      (rect.bottomLeft, false),
+    ]) {
+      final corner = rotateAround(c, rect, o.transform.rotation);
+      if ((corner - at).distance <= _handleRadius) {
+        return (item: o, falling: falling);
+      }
+    }
+    return null;
   }
+
+  OverlayItem? _onHandle(Offset at, Size size) => _onHandleAt(at, size)?.item;
 
   void _onTapUp(TapUpDetails d, Size size) {
     final hit = _hit(d.localPosition, size);
@@ -94,6 +112,8 @@ class _OverlayLayerState extends ConsumerState<OverlayLayer>
       ui.selectOverlay(hit.id);
     } else if (ref.read(timelineUiProvider).selectedOverlayId != null) {
       ui.selectOverlay(null);
+    } else {
+      widget.onTapEmpty?.call();
     }
   }
 
@@ -156,8 +176,11 @@ class _OverlayLayerState extends ConsumerState<OverlayLayer>
   }
 
   void _onHover(PointerHoverEvent e, Size size) {
-    final cursor = _onHandle(e.localPosition, size) != null
-        ? SystemMouseCursors.resizeUpLeftDownRight
+    final handle = _onHandleAt(e.localPosition, size);
+    final cursor = handle != null
+        ? (handle.falling
+              ? SystemMouseCursors.resizeUpLeftDownRight
+              : SystemMouseCursors.resizeUpRightDownLeft)
         : _hit(e.localPosition, size) != null
         ? SystemMouseCursors.move
         : MouseCursor.defer;
@@ -230,7 +253,7 @@ class _OverlayLayerState extends ConsumerState<OverlayLayer>
                     now: _clock.now,
                     selectedId: selected,
                     draft: _draft == null ? null : (id: _dragId!, t: _draft!),
-                    selection: Theme.of(context).colorScheme.primary,
+                    selection: Cut.accent,
                   ),
                 ),
               ),
@@ -295,22 +318,40 @@ class _OverlaysPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..color = selection;
+    final fill = Paint()..color = Colors.white;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = selection;
     canvas
       ..save()
       ..translate(rect.center.dx, rect.center.dy)
       ..rotate(t.rotation * 3.141592653589793 / 180)
       ..translate(-rect.center.dx, -rect.center.dy)
-      ..drawRect(rect, line)
-      ..drawCircle(rect.bottomRight, 6, Paint()..color = selection)
-      ..drawCircle(
-        rect.bottomRight,
-        6,
+      ..drawRect(
+        rect.inflate(6),
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5
-          ..color = Colors.white,
+          ..strokeWidth = 6
+          ..color = selection.withValues(alpha: 0.12),
       )
-      ..restore();
+      ..drawRect(rect, line);
+    // 8 px corner handles, white with an accent edge.
+    for (final c in [
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomLeft,
+      rect.bottomRight,
+    ]) {
+      final r = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: c, width: 9, height: 9),
+        const Radius.circular(2.5),
+      );
+      canvas
+        ..drawRRect(r, fill)
+        ..drawRRect(r, ring);
+    }
+    canvas.restore();
   }
 
   @override

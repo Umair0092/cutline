@@ -2,6 +2,7 @@ import 'package:cutline/app.dart';
 import 'package:cutline/editing/project_editor.dart';
 import 'package:cutline/preview/preview_controller.dart';
 import 'package:cutline/ui/editor_shortcuts.dart';
+import 'package:cutline/ui/widgets/cut_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,11 +50,11 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('video')), findsOneWidget);
-    expect(find.text('0:00.0 / 0:40.0'), findsOneWidget);
+    expect(find.text('00:00.00 / 00:40.00', findRichText: true), findsOneWidget);
 
     await preview.seek(s(12.3));
     await tester.pump();
-    expect(find.text('0:12.3 / 0:40.0'), findsOneWidget);
+    expect(find.text('00:12.30 / 00:40.00', findRichText: true), findsOneWidget);
   });
 
   testWidgets('space plays and pauses', (tester) async {
@@ -64,7 +65,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
     expect(preview.toggles, 1);
-    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    expect(find.byIcon(CutIcons.pause), findsOneWidget);
   });
 
   testWidgets('space is left alone while typing in a text field', (
