@@ -92,7 +92,7 @@ void main() {
     await tester.tap(find.byKey(const Key('save-key')));
     await settle(tester);
     expect(keys.value, 'gsk_abcdefghijklmnopqrstuv');
-    expect(find.text('Try asking'), findsOneWidget);
+    expect(find.text('What should we make?'), findsOneWidget);
   });
 
   testWidgets('Enter sends, the reply appears, Shift+Enter adds a line', (
