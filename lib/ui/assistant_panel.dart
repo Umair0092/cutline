@@ -1,34 +1,31 @@
-import 'dart:io';
-
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-
-import '../media/image_import.dart';
-import '../music/music_library.dart';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../music/track_player.dart';
+import 'package:path/path.dart' as p;
 
 import '../ai/api_key_store.dart';
 import '../ai/chat_controller.dart';
-import '../ai/meme_tools.dart';
 import '../editing/project_editor.dart';
-import '../memes/meme_panel.dart';
-import 'time_format.dart';
+import '../media/image_import.dart';
+import '../music/music_library.dart';
+import '../transcript/timeline_transcript.dart';
+import 'assistant/chat_cards.dart';
+import 'assistant/chat_draft.dart';
+import 'assistant/chat_parts.dart';
+import 'assistant/chat_welcome.dart';
+import 'assistant/composer.dart';
 import 'settings_dialog.dart';
+import 'time_format.dart';
+import 'tokens.dart';
+import 'widgets/cut_icons.dart';
+import 'widgets/cut_widgets.dart';
 
-/// The chat sidebar: messages, a box to type in, and send/stop.
+/// The chat: what you and the assistant said, the edits it made, and the
+/// box to type in.
 class AssistantPanel extends ConsumerStatefulWidget {
   const AssistantPanel({super.key});
-
-  static const examples = [
-    'Cut the first 5 seconds',
-    'Add an intro with my name',
-    'Make my voice a bit deeper',
-  ];
 
   @override
   ConsumerState<AssistantPanel> createState() => _AssistantPanelState();
@@ -41,6 +38,33 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
   /// Files picked to go with the next message.
   final _attachments = <String>[];
   late final _focus = FocusNode(onKeyEvent: _onKey);
+  bool _dragging = false;
+
+  /// Entries before this index were there when the panel opened, so they
+  /// don't animate in.
+  late int _seen = ref.read(chatProvider).entries.length;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual(chatDraftProvider, (_, draft) {
+      if (draft != null) _useDraft();
+    }, fireImmediately: true);
+  }
+
+  void _useDraft() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    final draft = ref.read(chatDraftProvider.notifier).take();
+    if (draft == null) return;
+    if (draft.send) {
+      _send(draft.text, draft.attachments);
+    } else {
+      _input.text = draft.text;
+      _input.selection = TextSelection.collapsed(offset: draft.text.length);
+      setState(() => _attachments.addAll(draft.attachments));
+      _focus.requestFocus();
+    }
+  });
 
   @override
   void dispose() {
@@ -61,37 +85,86 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
     return KeyEventResult.ignored;
   }
 
-  void _send([String? text]) {
+  /// Sends the box (or [text], e.g. a picked suggestion, with [files]).
+  void _send([String? text, List<String>? files]) {
+    final fromBox = text == null;
     final message = text ?? _input.text;
-    final files = text == null ? [..._attachments] : const <String>[];
-    if ((message.trim().isEmpty && files.isEmpty) ||
+    final attach = files ?? (fromBox ? [..._attachments] : const <String>[]);
+    if ((message.trim().isEmpty && attach.isEmpty) ||
         ref.read(chatProvider).busy) {
       return;
     }
-    if (text == null) {
+    if (fromBox) {
       _input.clear();
       setState(_attachments.clear);
     }
-    ref.read(chatProvider.notifier).send(message, attachments: files);
+    ref.read(chatProvider.notifier).send(message, attachments: attach);
   }
 
+  static const _attachTypes = XTypeGroup(
+    label: 'Pictures and audio',
+    extensions: [...imageExtensions, ...audioExtensions],
+    uniformTypeIdentifiers: ['public.image', 'public.audio'],
+  );
+
+  static const _pictureTypes = XTypeGroup(
+    label: 'Pictures',
+    extensions: imageExtensions,
+    uniformTypeIdentifiers: ['public.image'],
+  );
+
   Future<void> _attach() async {
-    final files = await openFiles(
-      acceptedTypeGroups: [
-        const XTypeGroup(
-          label: 'Pictures and audio',
-          extensions: [...imageExtensions, ...audioExtensions],
-          uniformTypeIdentifiers: ['public.image', 'public.audio'],
-        ),
-      ],
-    );
+    final files = await openFiles(acceptedTypeGroups: const [_attachTypes]);
     if (files.isEmpty || !mounted) return;
-    setState(() {
-      for (final f in files) {
-        if (!_attachments.contains(f.path)) _attachments.add(f.path);
-      }
-    });
+    _addAttachments([for (final f in files) f.path]);
     _focus.requestFocus();
+  }
+
+  void _addAttachments(List<String> paths) => setState(() {
+    for (final f in paths) {
+      if (!_attachments.contains(f)) _attachments.add(f);
+    }
+  });
+
+  static bool _attachable(String path) {
+    final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
+    return imageExtensions.contains(ext) || audioExtensions.contains(ext);
+  }
+
+  void _onDrop(List<String> paths) {
+    final ok = paths.where(_attachable).toList();
+    if (ok.isNotEmpty) {
+      _addAttachments(ok);
+      _focus.requestFocus();
+    }
+    if (ok.length < paths.length && mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Only pictures and audio can go in the chat. Drop videos on the '
+            'preview instead.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickSuggestion(ChatSuggestion s) async {
+    if (ref.read(chatProvider).busy) return;
+    switch (s.needs) {
+      case SuggestionNeeds.nothing:
+        _send(s.prompt);
+      case SuggestionNeeds.logo:
+        final file = await openFile(acceptedTypeGroups: const [_pictureTypes]);
+        if (file == null || !mounted) return;
+        _send(s.prompt, [file.path]);
+      case SuggestionNeeds.photos:
+        final files = await openFiles(
+          acceptedTypeGroups: const [_pictureTypes],
+        );
+        if (files.isEmpty || !mounted) return;
+        _send(s.prompt, [for (final f in files) f.path]);
+    }
   }
 
   void _scrollToEnd() {
@@ -100,664 +173,332 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
     });
   }
 
+  String _contextLine() {
+    final project = ref.watch(projectEditorProvider.select((s) => s.project));
+    final hasTranscript = ref.watch(
+      timelineTranscriptProvider.select((l) => l.isNotEmpty),
+    );
+    if (project.clips.isEmpty) {
+      return 'Import a video, then tell me what to change. Every reply is '
+          'one undo step.';
+    }
+    final length = formatPlayerTime(project.duration).split('.').first;
+    return hasTranscript
+        ? 'I can see your $length video and its transcript.'
+        : 'I can see your $length video. Every reply is one undo step.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(chatProvider);
     final hasKey = ref.watch(apiKeyProvider).value != null;
-    final colors = Theme.of(context).colorScheme;
-    ref.listen(chatProvider, (_, _) => _scrollToEnd());
+    final provider = ref.watch(aiProviderProvider).value;
+    ref.listen(chatProvider, (before, now) {
+      if (now.entries.length < (before?.entries.length ?? 0)) {
+        _seen = now.entries.length;
+      }
+      _scrollToEnd();
+    });
+    final empty = chat.entries.isEmpty && chat.streamingText == null;
+    final phone = isTouchPlatform || MediaQuery.sizeOf(context).width < 600;
+
+    final panel = Column(
+      children: [
+        Expanded(
+          child: !hasKey
+              ? ChatNoKey(onOpenSettings: () => showSettings(context))
+              : empty
+              ? ChatWelcome(context: _contextLine(), onPick: _pickSuggestion)
+              : _Messages(
+                  chat: chat,
+                  scroll: _scroll,
+                  seen: _seen,
+                  onSend: _send,
+                ),
+        ),
+        if (hasKey)
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 4, 12, phone ? 10 : 12),
+            child: ChatComposer(
+              controller: _input,
+              focusNode: _focus,
+              attachments: _attachments,
+              onRemoveAttachment: (f) => setState(() => _attachments.remove(f)),
+              onAttach: hasKey && !chat.busy ? _attach : null,
+              onSend: hasKey ? _send : null,
+              onStop: ref.read(chatProvider.notifier).stop,
+              busy: chat.busy,
+              enabled: hasKey,
+              footer: _Footer(
+                label: provider?.label,
+                showHint: !phone,
+                onModel: () => showSettings(context),
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final body = Stack(
+      children: [
+        Positioned.fill(child: panel),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: CutMotion.fast,
+              opacity: _dragging ? 1 : 0,
+              child: const _DropHint(),
+            ),
+          ),
+        ),
+      ],
+    );
 
     return ColoredBox(
-      color: colors.surfaceContainerLow,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 36,
-            child: Row(
-              children: [
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Edits are applied as one undo step per message.',
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: colors.onSurfaceVariant),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Settings',
-                  icon: const Icon(Icons.settings_outlined, size: 18),
-                  onPressed: () => showSettings(context),
-                ),
-              ],
+      color: Cut.surface1,
+      child: isTouchPlatform || !hasKey
+          ? body
+          : DropTarget(
+              onDragEntered: (_) => setState(() => _dragging = true),
+              onDragExited: (_) => setState(() => _dragging = false),
+              onDragDone: (d) {
+                setState(() => _dragging = false);
+                _onDrop([for (final f in d.files) f.path]);
+              },
+              child: body,
             ),
+    );
+  }
+}
+
+/// The conversation. The assistant's consecutive replies, cards and
+/// results sit under one "Cutline AI" header.
+class _Messages extends StatelessWidget {
+  const _Messages({
+    required this.chat,
+    required this.scroll,
+    required this.seen,
+    required this.onSend,
+  });
+
+  final ChatState chat;
+  final ScrollController scroll;
+  final int seen;
+  final void Function(String text) onSend;
+
+  static bool _fromAi(ChatRole r) => r != ChatRole.user && r != ChatRole.notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = chat.entries;
+    final children = <Widget>[];
+    for (var i = 0; i < entries.length; i++) {
+      final e = entries[i];
+      final prev = i > 0 ? entries[i - 1].role : null;
+      final startsTurn = _fromAi(e.role) && (prev == null || !_fromAi(prev));
+      final gap = i == 0
+          ? 0.0
+          : startsTurn || e.role == ChatRole.user
+          ? 20.0
+          : e.role == ChatRole.notice
+          ? 14.0
+          : 10.0;
+      Widget item = switch (e.role) {
+        ChatRole.user => UserBubble(text: e.text, attachments: e.attachments),
+        ChatRole.assistant => AssistantText(e.text),
+        ChatRole.notice => NoticeLine(text: e.text, error: e.isError),
+        ChatRole.change => ChangeCard(index: i, entry: e),
+        ChatRole.memes => MemeChoices(
+          entry: e,
+          onPick: (id) => onSend('Use $id'),
+        ),
+        ChatRole.tracks => TrackChoices(
+          entry: e,
+          onPick: (id) => onSend(
+            id.startsWith('sound')
+                ? 'Add $id'
+                : 'Use $id as the background music',
           ),
-          Divider(height: 1, color: colors.outlineVariant),
-          Expanded(
-            child: !hasKey
-                ? _NoKey(onOpenSettings: () => showSettings(context))
-                : chat.entries.isEmpty && chat.streamingText == null
-                ? _Examples(onPick: _send)
-                : ListView(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
+        ),
+        ChatRole.suggestion => SuggestionCard(index: i, entry: e),
+      };
+      if (startsTurn) {
+        item = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [const AiHeader(), item],
+        );
+      }
+      if (i >= seen) item = ArriveIn(child: item);
+      children.add(
+        Padding(
+          padding: EdgeInsets.only(top: gap),
+          child: item,
+        ),
+      );
+    }
+    final streaming = chat.streamingText;
+    if (streaming != null) {
+      final last = entries.lastOrNull?.role;
+      final startsTurn = last == null || !_fromAi(last);
+      final thinking = streaming.isEmpty || streaming.endsWith('…');
+      children.add(
+        Padding(
+          key: const Key('streaming'),
+          padding: EdgeInsets.only(top: entries.isEmpty ? 0 : 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (startsTurn) const AiHeader(),
+              if (thinking)
+                ThinkingLine(text: streaming.isEmpty ? 'Thinking…' : streaming)
+              else
+                AssistantText(streaming, caret: true),
+            ],
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+}
+
+/// Under the composer: which AI is connected (tap for settings) and the
+/// keyboard hint.
+class _Footer extends StatelessWidget {
+  const _Footer({
+    required this.label,
+    required this.showHint,
+    required this.onModel,
+  });
+
+  final String? label;
+  final bool showHint;
+  final VoidCallback onModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = CutType.caption.copyWith(
+      color: Cut.textTertiary,
+      fontSize: 11.5,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Row(
+        children: [
+          if (label != null)
+            Tooltip(
+              message: 'AI settings',
+              waitDuration: const Duration(milliseconds: 500),
+              child: Pressable(
+                key: const Key('chat-model'),
+                onTap: onModel,
+                child: Container(
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Cut.surface2,
+                    borderRadius: BorderRadius.circular(CutRadii.pill),
+                    border: Border.all(color: Cut.strokeSubtle),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      for (var i = 0; i < chat.entries.length; i++)
-                        switch (chat.entries[i].role) {
-                          ChatRole.change => _ChangeCard(
-                            index: i,
-                            entry: chat.entries[i],
-                          ),
-                          ChatRole.memes => _MemeChoices(
-                            entry: chat.entries[i],
-                            onPick: (id) => _send('Use $id'),
-                          ),
-                          ChatRole.tracks => _TrackChoices(
-                            entry: chat.entries[i],
-                            onPick: (id) => _send(
-                              id.startsWith('sound')
-                                  ? 'Add $id'
-                                  : 'Use $id as the background music',
-                            ),
-                          ),
-                          ChatRole.suggestion => _SuggestionCard(
-                            index: i,
-                            entry: chat.entries[i],
-                          ),
-                          _ => _Bubble(entry: chat.entries[i]),
-                        },
-                      if (chat.streamingText != null)
-                        _Bubble(
-                          entry: ChatEntry(
-                            role: ChatRole.assistant,
-                            text: chat.streamingText!.isEmpty
-                                ? 'Thinking…'
-                                : chat.streamingText!,
-                          ),
-                          key: const Key('streaming'),
-                        ),
+                      const AuroraIcon(size: 11),
+                      const SizedBox(width: 5),
+                      Text(
+                        label!,
+                        maxLines: 1,
+                        style: hint.copyWith(color: Cut.textSecondary),
+                      ),
+                      const SizedBox(width: 3),
+                      const Icon(
+                        CutIcons.down,
+                        size: 10,
+                        color: Cut.textTertiary,
+                      ),
                     ],
                   ),
-          ),
-          Divider(height: 1, color: colors.outlineVariant),
-          if (_attachments.isNotEmpty)
-            _PendingAttachments(
-              files: _attachments,
-              onRemove: (f) => setState(() => _attachments.remove(f)),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                IconButton(
-                  key: const Key('chat-attach'),
-                  tooltip: 'Attach a picture or audio',
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  onPressed: hasKey && !chat.busy ? _attach : null,
                 ),
-                Expanded(
-                  child: TextField(
-                    key: const Key('chat-input'),
-                    controller: _input,
-                    focusNode: _focus,
-                    enabled: hasKey,
-                    minLines: 1,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      hintText: 'Tell me what to change…',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                chat.busy
-                    ? IconButton.filledTonal(
-                        key: const Key('stop'),
-                        tooltip: 'Stop',
-                        icon: const Icon(Icons.stop_rounded),
-                        onPressed: ref.read(chatProvider.notifier).stop,
-                      )
-                    : IconButton.filled(
-                        key: const Key('send'),
-                        tooltip: 'Send (Enter)',
-                        icon: const Icon(Icons.arrow_upward_rounded),
-                        onPressed: hasKey ? _send : null,
-                      ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.entry, super.key});
-
-  final ChatEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isUser = entry.role == ChatRole.user;
-    if (entry.role == ChatRole.notice) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Text(
-          entry.text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            color: entry.isError ? colors.error : colors.onSurfaceVariant,
-          ),
-        ),
-      );
-    }
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: const BoxConstraints(maxWidth: 280),
-        decoration: BoxDecoration(
-          color: isUser
-              ? colors.primaryContainer
-              : colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (entry.attachments.isNotEmpty) ...[
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                alignment: WrapAlignment.end,
-                children: [
-                  for (final a in entry.attachments) _AttachmentThumb(a),
-                ],
-              ),
-              const SizedBox(height: 6),
-            ],
-            SelectableText(
-              entry.text,
-              style: TextStyle(
-                color: isUser ? colors.onPrimaryContainer : colors.onSurface,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A sent picture (thumbnail) or audio file (its name).
-class _AttachmentThumb extends StatelessWidget {
-  const _AttachmentThumb(this.path, {this.size = 72});
-
-  final String path;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
-    if (imageExtensions.contains(ext) && File(path).existsSync()) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Image.file(
-          File(path),
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          cacheWidth: (size * 2).round(),
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.music_note_rounded, size: 16, color: colors.primary),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
-            child: Text(
-              p.basename(path),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Files waiting to be sent with the next message, each with a remove
-/// button.
-class _PendingAttachments extends StatelessWidget {
-  const _PendingAttachments({required this.files, required this.onRemove});
-
-  final List<String> files;
-  final ValueChanged<String> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final f in files)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _AttachmentThumb(f, size: 56),
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: InkWell(
-                      key: Key('remove-attachment-${p.basename(f)}'),
-                      customBorder: const CircleBorder(),
-                      onTap: () => onRemove(f),
-                      child: CircleAvatar(
-                        radius: 10,
-                        backgroundColor: colors.inverseSurface,
-                        child: Icon(
-                          Icons.close,
-                          size: 12,
-                          color: colors.onInverseSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// What the assistant changed, with an Undo button while it's still the
-/// latest edit.
-class _ChangeCard extends ConsumerWidget {
-  const _ChangeCard({required this.index, required this.entry});
-
-  final int index;
-  final ChatEntry entry;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Rebuild when the project changes, since that decides if Undo works.
-    ref.watch(projectEditorProvider);
-    final canUndo = ref.read(chatProvider.notifier).canUndoChange(index);
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return Container(
-      key: Key('change-$index'),
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.outlineVariant),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            entry.undone ? Icons.undo : Icons.check_circle_outline,
-            size: 16,
-            color: entry.undone ? colors.onSurfaceVariant : colors.primary,
-          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final c in entry.changes)
-                  Text(
-                    c,
-                    style: text.bodySmall?.copyWith(
-                      decoration: entry.undone
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
-                if (entry.undone)
-                  Text(
-                    'Undone',
-                    style: text.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (canUndo)
-            TextButton(
-              key: Key('undo-change-$index'),
-              onPressed: () =>
-                  ref.read(chatProvider.notifier).undoChange(index),
-              child: const Text('Undo'),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Meme search results, numbered by the id the assistant uses. Clicking
-/// one tells the assistant to use it.
-class _MemeChoices extends StatelessWidget {
-  const _MemeChoices({required this.entry, required this.onPick});
-
-  final ChatEntry entry;
-  final ValueChanged<String> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final (id, meme) in entry.memes)
-            Tooltip(
-              message: '${meme.title} ($id)',
-              child: InkWell(
-                key: Key('meme-choice-$id'),
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onPick(id),
-                child: SizedBox(
-                  width: 92,
-                  height: 72,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: ColoredBox(
-                          color: colors.surfaceContainerHighest,
-                          child: MemeThumbnail(meme: meme),
-                        ),
+            child: showHint
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '↵',
+                            style: hint.copyWith(color: Cut.textSecondary),
+                          ),
+                          Text(' send', style: hint),
+                          const SizedBox(width: 10),
+                          Text(
+                            '⇧↵',
+                            style: hint.copyWith(color: Cut.textSecondary),
+                          ),
+                          Text(' new line', style: hint),
+                        ],
                       ),
-                      Positioned(
-                        left: 4,
-                        top: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            id.replaceFirst('meme', ''),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colors.onPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Music or sounds the assistant found: play to try one, Use to add it.
-class _TrackChoices extends ConsumerWidget {
-  const _TrackChoices({required this.entry, required this.onPick});
-
-  final ChatEntry entry;
-  final ValueChanged<String> onPick;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final playing = ref.watch(trackPlayerProvider);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        children: [
-          for (final (i, (id, track)) in entry.tracks.indexed) ...[
-            if (i > 0) Divider(height: 1, color: colors.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    key: Key('track-play-$id'),
-                    tooltip: playing == id ? 'Stop' : 'Play',
-                    icon: Icon(
-                      playing == id
-                          ? Icons.stop_circle_rounded
-                          : Icons.play_circle_fill_rounded,
-                      color: colors.primary,
-                      size: 30,
                     ),
-                    onPressed: () => ref
-                        .read(trackPlayerProvider.notifier)
-                        .toggle(id, track.source),
-                  ),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          [
-                            if (track.artist.isNotEmpty) track.artist,
-                            if (track.duration > Duration.zero)
-                              '${track.duration.inMinutes}:'
-                                  '${(track.duration.inSeconds % 60).toString().padLeft(2, '0')}',
-                            if (track.license.isNotEmpty) track.license,
-                          ].join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    key: Key('track-use-$id'),
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    onPressed: () {
-                      ref.read(trackPlayerProvider.notifier).stop();
-                      onPick(id);
-                    },
-                    child: const Text('Use'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// A meme the assistant suggests, with Add and Skip.
-class _SuggestionCard extends ConsumerWidget {
-  const _SuggestionCard({required this.index, required this.entry});
-
-  final int index;
-  final ChatEntry entry;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = entry.suggestion!;
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final chat = ref.read(chatProvider.notifier);
-    return Container(
-      key: Key('suggestion-$index'),
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.outlineVariant),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              width: 64,
-              height: 52,
-              child: MemeThumbnail(meme: s.meme),
-            ),
+                  )
+                : const SizedBox(),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown while pictures or audio are dragged over the chat.
+class _DropHint extends StatelessWidget {
+  const _DropHint();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: Cut.surface1.withValues(alpha: 0.88),
+    padding: const EdgeInsets.all(12),
+    child: AuroraBorder(
+      radius: CutRadii.lg,
+      width: 1.5,
+      opacity: 0.8,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Cut.surface2.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(CutRadii.lg - 1.5),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const AuroraGlow(size: 280, opacity: 0.22),
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                const AuroraIcon(size: 36, icon: CutIcons.attach),
+                const SizedBox(height: 12),
+                Text('Drop to attach', style: CutType.title),
+                const SizedBox(height: 4),
                 Text(
-                  '${formatPlayerTime(s.start)} · ${s.meme.title}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.labelMedium,
+                  'Pictures and audio go with your next message',
+                  textAlign: TextAlign.center,
+                  style: CutType.caption.copyWith(color: Cut.textTertiary),
                 ),
-                Text(s.reason, style: text.bodySmall),
-                if (s.status != SuggestionStatus.pending)
-                  Text(
-                    s.status == SuggestionStatus.accepted ? 'Added' : 'Skipped',
-                    style: text.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
               ],
             ),
-          ),
-          if (s.status == SuggestionStatus.pending) ...[
-            IconButton(
-              key: Key('reject-$index'),
-              tooltip: 'Skip',
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () => chat.rejectSuggestion(index),
-            ),
-            IconButton.filledTonal(
-              key: Key('accept-$index'),
-              tooltip: 'Add it',
-              icon: const Icon(Icons.check, size: 18),
-              onPressed: () => chat.acceptSuggestion(index),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _NoKey extends StatelessWidget {
-  const _NoKey({required this.onOpenSettings});
-
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add an API key to start editing with the assistant. Groq has a free one.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              key: const Key('open-settings'),
-              onPressed: onOpenSettings,
-              child: const Text('Add API Key…'),
-            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Examples extends StatelessWidget {
-  const _Examples({required this.onPick});
-
-  final void Function(String) onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Try asking',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            for (final e in AssistantPanel.examples)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: ActionChip(label: Text(e), onPressed: () => onPick(e)),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }

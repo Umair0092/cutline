@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../music/music_panel.dart';
 
 import '../audio/recording.dart';
 import '../editing/commands.dart';
 import '../editing/project_editor.dart';
 import '../library/project_library.dart';
+import '../music/music_panel.dart';
 import '../overlays/overlay_actions.dart';
-import '../timeline/timeline_state.dart';
 import '../timeline/timeline_panel.dart';
+import '../timeline/timeline_state.dart';
 import '../voice/voiceover_dialog.dart';
 import 'about.dart';
 import 'app_menu.dart';
+import 'assistant/chat_draft.dart';
 import 'editor_screen.dart';
 import 'editor_shortcuts.dart';
 import 'export_dialog.dart';
 import 'preview_pane.dart';
 import 'settings_dialog.dart';
 import 'sidebar.dart';
-import 'theme.dart';
+import 'tokens.dart';
 import 'transcript_panel.dart';
+import 'widgets/cut_icons.dart';
+import 'widgets/cut_widgets.dart';
 
 /// The editor on a phone: the video on top, the timeline under it, and
-/// the things you do most as labelled buttons along the bottom.
+/// the things you do most in a floating glass bar along the bottom, with
+/// Ask AI as the hero.
 class CompactEditor extends ConsumerWidget {
   const CompactEditor({super.key});
 
@@ -34,6 +38,7 @@ class CompactEditor extends ConsumerWidget {
       projectEditorProvider.select((s) => s.project.clips.isNotEmpty),
     );
     return Scaffold(
+      backgroundColor: Cut.base,
       body: AutoTranscribe(
         child: EditorShortcuts(
           child: SafeArea(
@@ -66,14 +71,29 @@ class CompactEditor extends ConsumerWidget {
                           SizedBox(
                             height: preview,
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(Radii.card),
-                                child: const PreviewPane(key: Key('preview')),
+                              padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                    CutRadii.lg,
+                                  ),
+                                  boxShadow: CutShadows.e2,
+                                ),
+                                foregroundDecoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                    CutRadii.lg,
+                                  ),
+                                  border: Border.all(color: Cut.strokeSubtle),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    CutRadii.lg,
+                                  ),
+                                  child: const PreviewPane(key: Key('preview')),
+                                ),
                               ),
                             ),
                           ),
-                          const Divider(height: 1),
                           const Expanded(
                             child: TimelinePanel(key: Key('timeline')),
                           ),
@@ -92,26 +112,113 @@ class CompactEditor extends ConsumerWidget {
   }
 }
 
-/// Opens the assistant, transcript and memes in a sheet covering most of
-/// the screen; [tab] picks which one shows first.
+/// Opens the assistant, transcript and memes in a sheet; [tab] picks which
+/// one shows first. The chat opens at about 60% height so the video stays
+/// in view while the AI edits it; drag the handle up for more room.
 Future<void> showSidebarSheet(BuildContext context, {int tab = 0}) =>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) {
-        final media = MediaQuery.of(context);
-        return Padding(
-          // Keep the chat box above the keyboard.
-          padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-          child: SizedBox(
-            height: (media.size.height - media.viewInsets.bottom) * 0.82,
-            child: Sidebar(key: const Key('sidebar'), initialTab: tab),
-          ),
-        );
-      },
+      showDragHandle: false,
+      backgroundColor: Cut.surface1,
+      barrierColor: const Color(0x52000000),
+      clipBehavior: Clip.antiAlias,
+      builder: (context) => _AiSheet(tab: tab),
     );
+
+class _AiSheet extends StatefulWidget {
+  const _AiSheet({required this.tab});
+
+  final int tab;
+
+  @override
+  State<_AiSheet> createState() => _AiSheetState();
+}
+
+class _AiSheetState extends State<_AiSheet> {
+  static const _low = 0.6;
+  static const _high = 0.94;
+  late double _fraction = widget.tab == 0 ? _low : 0.8;
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final room = media.size.height - keyboard - media.padding.top;
+    // With the keyboard up there's no room to spare for the video.
+    final fraction = keyboard > 0 ? _high : _fraction;
+    return Padding(
+      // Keep the chat box above the keyboard.
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: AnimatedContainer(
+        duration: _dragging ? Duration.zero : CutMotion.normal,
+        curve: CutMotion.decelerate,
+        height: room * fraction,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x0DFFFFFF), Color(0x00FFFFFF)],
+            stops: [0, 0.08],
+          ),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: (_) => setState(() => _dragging = true),
+              onVerticalDragUpdate: (d) => setState(
+                () => _fraction = (_fraction - d.delta.dy / room).clamp(
+                  0.3,
+                  _high,
+                ),
+              ),
+              onVerticalDragEnd: (d) {
+                final v = d.primaryVelocity ?? 0;
+                if (_fraction < 0.42 || v > 1400 && _fraction < _low + 0.05) {
+                  Navigator.maybePop(context);
+                  return;
+                }
+                setState(() {
+                  _dragging = false;
+                  _fraction = v < -400
+                      ? _high
+                      : v > 400
+                      ? _low
+                      : (_fraction - _low).abs() < (_fraction - _high).abs()
+                      ? _low
+                      : _high;
+                });
+              },
+              onTap: () => setState(
+                () => _fraction = _fraction < (_low + _high) / 2 ? _high : _low,
+              ),
+              child: SizedBox(
+                height: 22,
+                width: double.infinity,
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Cut.strokeStrong,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Sidebar(key: const Key('sidebar'), initialTab: widget.tab),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Back to your edits, the name, undo/redo and Export.
 class CompactTopBar extends ConsumerWidget {
@@ -121,7 +228,6 @@ class CompactTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(projectEditorProvider);
     final editor = ref.read(projectEditorProvider.notifier);
-    final theme = Theme.of(context);
     final menus = AppMenuScope.of(context);
     final commands = [
       for (final group in ['File', 'Help'])
@@ -132,78 +238,105 @@ class CompactTopBar extends ConsumerWidget {
         ),
     ];
     final canGoBack = Navigator.of(context).canPop();
+    final canExport = state.project.clips.isNotEmpty;
     return SizedBox(
       key: const Key('compact-top-bar'),
       height: 56,
-      child: Row(
-        children: [
-          if (canGoBack)
-            IconButton(
-              key: const Key('back-to-edits'),
-              tooltip: 'Your edits',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => leaveEditor(ref, context),
-            )
-          else
-            const SizedBox(width: 12),
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(Radii.chip),
-              onTap: () => renameProjectFlow(ref, context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                child: Text(
-                  state.project.name,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            if (canGoBack)
+              CutIconButton(
+                key: const Key('back-to-edits'),
+                icon: CutIcons.back,
+                tooltip: 'Your edits',
+                size: 48,
+                iconSize: 22,
+                color: Cut.textPrimary,
+                onPressed: () => leaveEditor(ref, context),
+              )
+            else
+              const SizedBox(width: 12),
+            Expanded(
+              child: Pressable(
+                onTap: () => renameProjectFlow(ref, context),
+                pressedScale: 0.98,
+                semanticLabel: 'Rename ${state.project.name}',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 4,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          state.project.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: CutType.titleSm.copyWith(fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        CutIcons.down,
+                        size: 13,
+                        color: Cut.textTertiary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: state.canUndo ? 'Undo ${state.undoLabel}' : 'Undo',
-            icon: const Icon(Icons.undo),
-            onPressed: state.canUndo ? editor.undo : null,
-          ),
-          IconButton(
-            tooltip: state.canRedo ? 'Redo ${state.redoLabel}' : 'Redo',
-            icon: const Icon(Icons.redo),
-            onPressed: state.canRedo ? editor.redo : null,
-          ),
-          const SizedBox(width: 4),
-          FilledButton(
-            key: const Key('compact-export'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              minimumSize: const Size(0, 38),
+            CutIconButton(
+              icon: CutIcons.undo,
+              tooltip: state.canUndo ? 'Undo ${state.undoLabel}' : 'Undo',
+              size: 44,
+              iconSize: 20,
+              color: Cut.textPrimary,
+              onPressed: state.canUndo ? editor.undo : null,
             ),
-            onPressed: state.project.clips.isEmpty
-                ? null
-                : () => showExportFlow(ref, context),
-            child: const Text('Export'),
-          ),
-          PopupMenuButton<VoidCallback>(
-            key: const Key('compact-menu'),
-            tooltip: 'More',
-            icon: const Icon(Icons.more_vert),
-            onSelected: (action) => action(),
-            itemBuilder: (_) => [
-              for (final c in commands)
-                PopupMenuItem(value: c.onSelected, child: Text(c.label)),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: () => showSettings(context),
-                child: const Text('Settings…'),
+            CutIconButton(
+              icon: CutIcons.redo,
+              tooltip: state.canRedo ? 'Redo ${state.redoLabel}' : 'Redo',
+              size: 44,
+              iconSize: 20,
+              color: Cut.textPrimary,
+              onPressed: state.canRedo ? editor.redo : null,
+            ),
+            const SizedBox(width: 4),
+            FilledButton(
+              key: const Key('compact-export'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                minimumSize: const Size(0, 38),
+                shape: const StadiumBorder(),
               ),
-              PopupMenuItem(
-                value: () => showCutlineAbout(context),
-                child: const Text('About Cutline'),
-              ),
-            ],
-          ),
-        ],
+              onPressed: canExport ? () => showExportFlow(ref, context) : null,
+              child: const Text('Export'),
+            ),
+            PopupMenuButton<VoidCallback>(
+              key: const Key('compact-menu'),
+              tooltip: 'More',
+              icon: const Icon(CutIcons.moreVertical, size: 22),
+              onSelected: (action) => action(),
+              itemBuilder: (_) => [
+                for (final c in commands)
+                  PopupMenuItem(value: c.onSelected, child: Text(c.label)),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: () => showSettings(context),
+                  child: const Text('Settings…'),
+                ),
+                PopupMenuItem(
+                  value: () => showCutlineAbout(context),
+                  child: const Text('About Cutline'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -216,13 +349,10 @@ Future<void> renameProjectFlow(WidgetRef ref, BuildContext context) async {
   );
   final name = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Rename edit'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        onSubmitted: (v) => Navigator.pop(context, v.trim()),
-      ),
+    builder: (context) => CutDialog(
+      title: 'Rename edit',
+      icon: CutIcons.rename,
+      width: 420,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -233,151 +363,336 @@ Future<void> renameProjectFlow(WidgetRef ref, BuildContext context) async {
           child: const Text('Rename'),
         ),
       ],
+      child: TextField(
+        controller: controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        onSubmitted: (v) => Navigator.pop(context, v.trim()),
+      ),
     ),
   );
+  controller.dispose();
   if (name == null || name.isEmpty) return;
   ref.read(projectEditorProvider.notifier).run(RenameProject(name));
 }
 
-/// What you do most, with words under the icons.
-class _ActionBar extends ConsumerWidget {
+/// Which tool rail the bottom bar shows.
+enum _Rail { main, text, memes, audio }
+
+/// What you do most, with words under the icons. Text, Memes and Audio
+/// open a rail of their tools in place of the bar (CapCut-style); the back
+/// chevron returns.
+class _ActionBar extends ConsumerStatefulWidget {
   const _ActionBar();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ActionBar> createState() => _ActionBarState();
+}
+
+class _ActionBarState extends ConsumerState<_ActionBar> {
+  _Rail _rail = _Rail.main;
+
+  void _open(_Rail rail) {
+    HapticFeedback.selectionClick();
+    setState(() => _rail = rail);
+  }
+
+  /// Opens the chat with [prompt] filled in (or sent).
+  void _askAi(String prompt, {bool send = false}) {
+    ref.read(chatDraftProvider.notifier).set(ChatDraft(prompt, send: send));
+    setState(() => _rail = _Rail.main);
+    showSidebarSheet(context);
+  }
+
+  List<_Tool> _tools(_Rail rail) => switch (rail) {
+    _Rail.main => [
+      _Tool(
+        'action-ask',
+        CutIcons.ai,
+        'Ask AI',
+        () => showSidebarSheet(context),
+        hero: true,
+      ),
+      _Tool('action-text', CutIcons.textStyle, 'Text', () => _open(_Rail.text)),
+      _Tool('action-memes', CutIcons.meme, 'Memes', () => _open(_Rail.memes)),
+      _Tool('action-audio', CutIcons.audio, 'Audio', () => _open(_Rail.audio)),
+      _Tool('action-split', CutIcons.split, 'Split', () {
+        HapticFeedback.mediumImpact();
+        splitAtPlayhead(ref, context);
+      }),
+    ],
+    _Rail.text => [
+      _Tool(
+        'action-text-title',
+        CutIcons.title,
+        'Title',
+        () => addTitleFlow(ref, context),
+      ),
+      _Tool(
+        'action-text-intro',
+        CutIcons.intro,
+        'Intro',
+        () => addTitleFlow(ref, context),
+      ),
+      _Tool(
+        'action-text-ai',
+        CutIcons.ai,
+        'AI intro',
+        () => _askAi('Add a punchy intro before the video with my name.'),
+        ai: true,
+      ),
+    ],
+    _Rail.memes => [
+      _Tool(
+        'action-memes-search',
+        CutIcons.search,
+        'Search',
+        () => showSidebarSheet(context, tab: 2),
+      ),
+      _Tool(
+        'action-memes-file',
+        CutIcons.addImage,
+        'From file',
+        () => pickAndAddOverlay(ref, context),
+      ),
+      _Tool(
+        'action-memes-ai',
+        CutIcons.ai,
+        'AI picks',
+        () => _askAi('Suggest memes for the funniest moments.', send: true),
+        ai: true,
+      ),
+    ],
+    _Rail.audio => [
+      _Tool(
+        'action-audio-record',
+        CutIcons.mic,
+        'Record',
+        () => ref.read(recordingProvider.notifier).show(),
+      ),
+      _Tool(
+        'action-audio-script',
+        CutIcons.voice,
+        'Voiceover',
+        () => showVoiceoverDialog(context),
+      ),
+      _Tool(
+        'action-audio-music',
+        CutIcons.musicLibrary,
+        'Music',
+        () => showMusicBrowser(context),
+      ),
+      _Tool(
+        'action-audio-levels',
+        CutIcons.levels,
+        'Levels',
+        () => showMixSheet(context),
+      ),
+      _Tool(
+        'action-audio-ai',
+        CutIcons.ai,
+        'AI music',
+        () => _askAi('Find background music that fits this video.'),
+        ai: true,
+      ),
+    ],
+  };
+
+  static String _title(_Rail r) => switch (r) {
+    _Rail.text => 'Text',
+    _Rail.memes => 'Memes',
+    _Rail.audio => 'Audio',
+    _Rail.main => '',
+  };
+
+  @override
+  Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
-    Widget action(
-      String key,
-      IconData icon,
-      String label,
-      VoidCallback onTap, {
-      bool accent = false,
-    }) => Expanded(
-      child: InkWell(
-        key: Key(key),
-        borderRadius: BorderRadius.circular(Radii.control),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: accent ? Palette.cut : null,
-                  borderRadius: BorderRadius.circular(Radii.control),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: accent ? Colors.white : Palette.paper,
-                ),
+    final rail = _rail;
+    final tools = _tools(rail);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, 6, 10, bottom + 10),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(CutRadii.xl + 4),
+          boxShadow: CutShadows.e3,
+        ),
+        child: GlassPanel(
+          radius: CutRadii.xl + 4,
+          tint: const Color(0xE01E1C28),
+          child: SizedBox(
+            height: 68,
+            child: AnimatedSwitcher(
+              duration: CutMotion.normal,
+              switchInCurve: CutMotion.decelerate,
+              switchOutCurve: CutMotion.accelerate,
+              transitionBuilder: (child, a) {
+                final incoming = child.key == ValueKey(rail);
+                final dir = rail == _Rail.main ? -1.0 : 1.0;
+                return FadeTransition(
+                  opacity: a,
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: Offset((incoming ? 0.25 : -0.25) * dir, 0),
+                      end: Offset.zero,
+                    ).animate(a),
+                    child: child,
+                  ),
+                );
+              },
+              child: Row(
+                key: ValueKey(rail),
+                children: [
+                  if (rail != _Rail.main) ...[
+                    _BackButton(
+                      label: _title(rail),
+                      onTap: () => setState(() => _rail = _Rail.main),
+                    ),
+                    Container(width: 1, height: 32, color: Cut.strokeDefault),
+                  ],
+                  for (final t in tools) Expanded(child: _ToolButton(tool: t)),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11.5, color: Palette.dust),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
-    return Container(
-      decoration: const BoxDecoration(
-        color: Palette.bench,
-        border: Border(top: BorderSide(color: Palette.rule)),
+  }
+}
+
+class _Tool {
+  const _Tool(
+    this.key,
+    this.icon,
+    this.label,
+    this.onTap, {
+    this.hero = false,
+    this.ai = false,
+  });
+
+  final String key;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  /// Ask AI: an aurora pill behind the icon.
+  final bool hero;
+
+  /// An AI tool in a rail: aurora icon.
+  final bool ai;
+}
+
+class _ToolButton extends StatelessWidget {
+  const _ToolButton({required this.tool});
+
+  final _Tool tool;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      tool.label,
+      maxLines: 1,
+      overflow: TextOverflow.fade,
+      softWrap: false,
+      style: CutType.caption.copyWith(
+        fontSize: 11,
+        height: 14 / 11,
+        color: tool.hero ? Cut.textPrimary : Cut.textSecondary,
+        fontWeight: tool.hero ? FontWeight.w600 : FontWeight.w500,
+        fontVariations: [FontVariation('wght', tool.hero ? 620 : 500)],
       ),
-      padding: EdgeInsets.fromLTRB(6, 2, 6, bottom + 2),
-      child: Row(
-        children: [
-          action(
-            'action-ask',
-            Icons.auto_awesome,
-            'Ask AI',
-            () => showSidebarSheet(context),
-            accent: true,
+    );
+    final Widget icon;
+    if (tool.hero) {
+      icon = Container(
+        width: 52,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: Cut.auroraGradient,
+          borderRadius: BorderRadius.circular(CutRadii.pill),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66B14DFF),
+              blurRadius: 16,
+              offset: Offset(0, 4),
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(CutRadii.pill),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+            stops: [0, 0.55],
           ),
-          action(
-            'action-text',
-            Icons.title,
-            'Text',
-            () => addTitleFlow(ref, context),
-          ),
-          action(
-            'action-memes',
-            Icons.emoji_emotions_outlined,
-            'Memes',
-            () => _memes(context, ref),
-          ),
-          action(
-            'action-audio',
-            Icons.graphic_eq,
-            'Audio',
-            () => _audio(context, ref),
-          ),
-          action(
-            'action-split',
-            Icons.content_cut,
-            'Split',
-            () => splitAtPlayhead(ref, context),
-          ),
-        ],
+        ),
+        child: const Icon(CutIcons.ai, size: 19, color: Colors.white),
+      );
+    } else {
+      icon = SizedBox(
+        height: 32,
+        child: Center(
+          child: tool.ai
+              ? AuroraIcon(size: 22, icon: tool.icon)
+              : Icon(tool.icon, size: 23, color: Cut.textPrimary),
+        ),
+      );
+    }
+    return Pressable(
+      key: Key(tool.key),
+      onTap: tool.onTap,
+      pressedScale: 0.92,
+      semanticLabel: tool.label,
+      child: SizedBox(
+        height: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [icon, const SizedBox(height: 5), label],
+        ),
       ),
     );
   }
+}
 
-  Future<void> _memes(BuildContext context, WidgetRef ref) async {
-    final choice = await _choose(context, [
-      (Icons.search, 'Search memes and GIFs', 'search'),
-      (Icons.add_photo_alternate_outlined, 'Add a picture or video', 'file'),
-    ]);
-    if (!context.mounted) return;
-    if (choice == 'search') {
-      await showSidebarSheet(context, tab: 2);
-    } else if (choice == 'file') {
-      await pickAndAddOverlay(ref, context);
-    }
-  }
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.label, required this.onTap});
 
-  Future<void> _audio(BuildContext context, WidgetRef ref) async {
-    final choice = await _choose(context, [
-      (Icons.mic_none, 'Record a voiceover', 'record'),
-      (Icons.record_voice_over_outlined, 'Voiceover from a script', 'script'),
-      (Icons.library_music_outlined, 'Add music or a sound', 'music'),
-      (Icons.tune, 'Sound levels', 'levels'),
-    ]);
-    if (!context.mounted) return;
-    if (choice == 'record') {
-      await ref.read(recordingProvider.notifier).show();
-    } else if (choice == 'script') {
-      await showVoiceoverDialog(context);
-    } else if (choice == 'music') {
-      await showMusicBrowser(context);
-    } else if (choice == 'levels') {
-      await showMixSheet(context);
-    }
-  }
+  final String label;
+  final VoidCallback onTap;
 
-  Future<String?> _choose(
-    BuildContext context,
-    List<(IconData, String, String)> options,
-  ) => showModalBottomSheet<String>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
+  @override
+  Widget build(BuildContext context) => Pressable(
+    key: const Key('action-back'),
+    onTap: onTap,
+    pressedScale: 0.92,
+    semanticLabel: 'Back',
+    child: SizedBox(
+      width: 56,
+      height: 64,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          for (final (icon, label, value) in options)
-            ListTile(
-              leading: Icon(icon),
-              title: Text(label),
-              onTap: () => Navigator.pop(context, value),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Cut.surface4,
+              shape: BoxShape.circle,
+              border: Border.all(color: Cut.strokeDefault),
             ),
-          const SizedBox(height: 8),
+            child: const Icon(CutIcons.back, size: 16, color: Cut.textPrimary),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            style: CutType.overline.copyWith(
+              fontSize: 10,
+              color: Cut.textTertiary,
+            ),
+          ),
         ],
       ),
     ),
