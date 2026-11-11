@@ -50,11 +50,17 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('video')), findsOneWidget);
-    expect(find.text('00:00.00 / 00:40.00', findRichText: true), findsOneWidget);
+    expect(
+      find.text('00:00.00 / 00:40.00', findRichText: true),
+      findsOneWidget,
+    );
 
     await preview.seek(s(12.3));
     await tester.pump();
-    expect(find.text('00:12.30 / 00:40.00', findRichText: true), findsOneWidget);
+    expect(
+      find.text('00:12.30 / 00:40.00', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('space plays and pauses', (tester) async {
