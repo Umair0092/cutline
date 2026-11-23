@@ -205,6 +205,36 @@ class EditToolbox {
       ['time'],
     ),
     _tool(
+      'remove_silences',
+      'Cut the quiet gaps between spoken lines, using the transcript, to '
+          'tighten the video and leave a short breath. Use for "remove the '
+          'silences", "cut the dead air", "tighten this up". Needs a '
+          'transcript.',
+      {
+        'min_gap': {
+          'type': 'number',
+          'minimum': 0.2,
+          'maximum': 10,
+          'description': 'Only cut gaps longer than this many seconds '
+              '(default 0.6).',
+        },
+        'leave': {
+          'type': 'number',
+          'minimum': 0,
+          'maximum': 2,
+          'description':
+              'Seconds of pause to leave where a gap is cut (default 0.25).',
+        },
+        'trim_ends': {
+          'type': 'boolean',
+          'description':
+              'Also trim silence before the first and after the last word '
+              '(default true).',
+        },
+      },
+      const [],
+    ),
+    _tool(
       'delete_clip',
       'Delete a whole clip by id. The gap closes.',
       {
@@ -643,6 +673,7 @@ class EditToolbox {
         null,
       ),
       'split_at' => (SplitAt(_time(input, 'time')), null),
+      'remove_silences' => (_removeSilences(input, project, context), null),
       'delete_clip' => (RemoveClip(_string(input, 'clip_id')), null),
       'move_clip' => (
         MoveClip(_string(input, 'clip_id'), _int(input, 'to_index')),
@@ -673,6 +704,64 @@ class EditToolbox {
       'remove_audio' => (_removeAudio(input, project), null),
       _ => throw _BadInput('Unknown tool "$name".'),
     };
+  }
+
+  /// Cuts the quiet gaps between spoken lines. Gaps are read from the
+  /// timeline transcript; each gap longer than [min_gap] has everything past
+  /// a short [leave] pause removed. Cuts are applied last-first so earlier
+  /// cuts don't shift the coordinates of later ones.
+  EditCommand _removeSilences(
+    Map<String, dynamic> input,
+    Project project,
+    ToolContext context,
+  ) {
+    final lines = context.transcript;
+    if (lines.isEmpty) {
+      throw _BadInput(
+        'The video has no transcript yet, so I can\'t find the silences. '
+        'Transcribe it first.',
+      );
+    }
+    final minGap = input.containsKey('min_gap')
+        ? _seconds(_number(input, 'min_gap', 0.2, 10))
+        : const Duration(milliseconds: 600);
+    final leave = input.containsKey('leave')
+        ? _seconds(_number(input, 'leave', 0, 2))
+        : const Duration(milliseconds: 250);
+    final trimEndsRaw = input['trim_ends'];
+    if (trimEndsRaw != null && trimEndsRaw is! bool) {
+      throw _BadInput('"trim_ends" must be true or false.');
+    }
+    final trimEnds = trimEndsRaw != false;
+
+    final sorted = [...lines]..sort((a, b) => a.start.compareTo(b.start));
+    final gaps = <(Duration, Duration)>[];
+    if (trimEnds && sorted.first.start > Duration.zero) {
+      gaps.add((Duration.zero, sorted.first.start));
+    }
+    for (var i = 0; i < sorted.length - 1; i++) {
+      final start = sorted[i].end;
+      final end = sorted[i + 1].start;
+      if (end > start) gaps.add((start, end));
+    }
+    if (trimEnds && sorted.last.end < project.duration) {
+      gaps.add((sorted.last.end, project.duration));
+    }
+
+    final cuts = <(Duration, Duration)>[];
+    for (final (start, end) in gaps) {
+      if (end - start <= minGap) continue;
+      final cutStart = start + leave;
+      if (end > cutStart) cuts.add((cutStart, end));
+    }
+    if (cuts.isEmpty) {
+      final gapS = (minGap.inMilliseconds / 1000).toStringAsFixed(1);
+      throw _BadInput('No silences longer than ${gapS}s to cut.');
+    }
+    cuts.sort((a, b) => b.$1.compareTo(a.$1)); // last first
+    return Batch('Remove silences', [
+      for (final (start, end) in cuts) RemoveRange(start, end),
+    ]);
   }
 
   Future<EditCommand> _addTitle(
