@@ -9,6 +9,7 @@ import '../ai/api_key_store.dart';
 import '../ai/chat_controller.dart';
 import '../editing/project_editor.dart';
 import '../media/image_import.dart';
+import '../model/audio_item.dart';
 import '../music/music_library.dart';
 import '../transcript/timeline_transcript.dart';
 import 'assistant/chat_cards.dart';
@@ -173,6 +174,18 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
     });
   }
 
+  List<ChatSuggestion> _suggestions() {
+    final project = ref.watch(projectEditorProvider.select((s) => s.project));
+    final hasTranscript = ref.watch(
+      timelineTranscriptProvider.select((l) => l.isNotEmpty),
+    );
+    return suggestionsFor(
+      hasClips: project.clips.isNotEmpty,
+      hasTranscript: hasTranscript,
+      hasMusic: project.audio.any((a) => a.role == AudioRole.music),
+    );
+  }
+
   String _contextLine() {
     final project = ref.watch(projectEditorProvider.select((s) => s.project));
     final hasTranscript = ref.watch(
@@ -208,7 +221,11 @@ class _AssistantPanelState extends ConsumerState<AssistantPanel> {
           child: !hasKey
               ? ChatNoKey(onOpenSettings: () => showSettings(context))
               : empty
-              ? ChatWelcome(context: _contextLine(), onPick: _pickSuggestion)
+              ? ChatWelcome(
+                  context: _contextLine(),
+                  onPick: _pickSuggestion,
+                  suggestions: _suggestions(),
+                )
               : _Messages(
                   chat: chat,
                   scroll: _scroll,

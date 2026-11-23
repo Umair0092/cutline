@@ -26,75 +26,121 @@ class ChatSuggestion {
   final SuggestionNeeds needs;
 }
 
-/// Four big ideas for the 2 × 2 grid, then two more as chips. Each shows
-/// off something the assistant really does.
+// Each idea shows off something the assistant really does. The two marked
+// "needs the transcript" only make sense once the video is transcribed.
+const _cutSilences = ChatSuggestion(
+  icon: CutIcons.cut,
+  color: Cut.trackVideo,
+  title: 'Cut the silences',
+  subtitle: 'and slow starts',
+  prompt:
+      'Cut out the long pauses, and trim the first few seconds before I '
+      'start talking.',
+);
+const _logoIntro = ChatSuggestion(
+  icon: CutIcons.intro,
+  color: Cut.trackTitle,
+  title: 'Add a logo intro',
+  subtitle: 'attach your logo',
+  prompt: 'Make a short intro before the video with this logo.',
+  needs: SuggestionNeeds.logo,
+);
+const _music = ChatSuggestion(
+  icon: CutIcons.music,
+  color: Cut.trackMusic,
+  title: 'Background music',
+  subtitle: 'calm and lo-fi',
+  prompt: 'Find some calm lo-fi background music for this video.',
+);
+const _memes = ChatSuggestion(
+  icon: CutIcons.meme,
+  color: Cut.trackOverlay,
+  title: 'Funny memes',
+  subtitle: 'at the right moments',
+  prompt: 'Suggest memes for the funniest moments.',
+);
+const _voiceover = ChatSuggestion(
+  icon: CutIcons.mic,
+  color: Cut.trackVoice,
+  title: 'Write a voiceover',
+  subtitle: '',
+  prompt:
+      'Write a short, friendly voiceover introducing this video and add it '
+      'at the start.',
+);
+const _photos = ChatSuggestion(
+  icon: CutIcons.image,
+  color: Cut.trackOverlay,
+  title: 'Video from photos',
+  subtitle: '',
+  prompt: 'Make a video from these photos, about 3 seconds each.',
+  needs: SuggestionNeeds.photos,
+);
+
+/// The full catalog, in a sensible default order.
 const chatSuggestions = [
-  ChatSuggestion(
-    icon: CutIcons.cut,
-    color: Cut.trackVideo,
-    title: 'Cut the silences',
-    subtitle: 'and slow starts',
-    prompt:
-        'Cut out the long pauses, and trim the first few seconds before I '
-        'start talking.',
-  ),
-  ChatSuggestion(
-    icon: CutIcons.intro,
-    color: Cut.trackTitle,
-    title: 'Add a logo intro',
-    subtitle: 'attach your logo',
-    prompt: 'Make a short intro before the video with this logo.',
-    needs: SuggestionNeeds.logo,
-  ),
-  ChatSuggestion(
-    icon: CutIcons.music,
-    color: Cut.trackMusic,
-    title: 'Background music',
-    subtitle: 'calm and lo-fi',
-    prompt: 'Find some calm lo-fi background music for this video.',
-  ),
-  ChatSuggestion(
-    icon: CutIcons.meme,
-    color: Cut.trackOverlay,
-    title: 'Funny memes',
-    subtitle: 'at the right moments',
-    prompt: 'Suggest memes for the funniest moments.',
-  ),
-  ChatSuggestion(
-    icon: CutIcons.mic,
-    color: Cut.trackVoice,
-    title: 'Write a voiceover',
-    subtitle: '',
-    prompt:
-        'Write a short, friendly voiceover introducing this video and add it '
-        'at the start.',
-  ),
-  ChatSuggestion(
-    icon: CutIcons.image,
-    color: Cut.trackOverlay,
-    title: 'Video from photos',
-    subtitle: '',
-    prompt: 'Make a video from these photos, about 3 seconds each.',
-    needs: SuggestionNeeds.photos,
-  ),
+  _cutSilences,
+  _memes,
+  _logoIntro,
+  _music,
+  _voiceover,
+  _photos,
 ];
+
+/// Ideas tailored to the project right now: the first four become cards, the
+/// rest chips. Transcript-powered ideas (cut silences, memes) only appear
+/// once there's a transcript; music is dropped when the video already has
+/// some; with no video yet, start from photos.
+List<ChatSuggestion> suggestionsFor({
+  required bool hasClips,
+  required bool hasTranscript,
+  required bool hasMusic,
+}) {
+  final ranked = <ChatSuggestion>[
+    if (!hasClips) _photos,
+    if (hasClips && hasTranscript) _cutSilences,
+    if (hasClips && hasTranscript) _memes,
+    _logoIntro,
+    if (!hasMusic) _music,
+    _voiceover,
+  ];
+  // Backfill from the catalog so the grid stays full, without duplicates,
+  // ones we deliberately dropped, or transcript-only ideas with no transcript.
+  for (final s in chatSuggestions) {
+    if (ranked.length >= 6) break;
+    if (ranked.contains(s)) continue;
+    if (s == _music && hasMusic) continue;
+    if ((s == _cutSilences || s == _memes) && !hasTranscript) continue;
+    if (s == _photos && hasClips) continue;
+    ranked.add(s);
+  }
+  return ranked;
+}
 
 /// The empty chat: a soft aurora glow, a sparkle, "What should we make?",
 /// a line that says what the assistant can see, and ideas to start with.
 class ChatWelcome extends StatelessWidget {
-  const ChatWelcome({super.key, required this.context, required this.onPick});
+  const ChatWelcome({
+    super.key,
+    required this.context,
+    required this.onPick,
+    this.suggestions = chatSuggestions,
+  });
 
   /// "I can see your 0:20 video and its transcript."
   final String context;
   final ValueChanged<ChatSuggestion> onPick;
+
+  /// Ideas to show, tailored to the project (see [suggestionsFor]).
+  final List<ChatSuggestion> suggestions;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final short = box.maxHeight < 380;
       final compact = box.maxHeight < 560;
-      final cards = chatSuggestions.take(4).toList();
-      final more = chatSuggestions.skip(4).toList();
+      final cards = suggestions.take(4).toList();
+      final more = suggestions.skip(4).toList();
       return SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(16, compact ? 8 : 20, 16, 16),
         child: ConstrainedBox(
@@ -148,15 +194,15 @@ class ChatWelcome extends StatelessWidget {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
-                    itemCount: chatSuggestions.length,
+                    itemCount: suggestions.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, i) => SizedBox(
                       width: 176,
                       child: ArriveIn(
                         delay: Duration(milliseconds: 30 * i),
                         child: _SuggestionCard(
-                          s: chatSuggestions[i],
-                          onTap: () => onPick(chatSuggestions[i]),
+                          s: suggestions[i],
+                          onTap: () => onPick(suggestions[i]),
                         ),
                       ),
                     ),
