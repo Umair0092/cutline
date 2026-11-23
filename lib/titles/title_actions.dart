@@ -22,15 +22,24 @@ enum TitlePlacement {
   over,
 }
 
-/// Size and rate titles are made at, from the first clip.
+/// Size and rate titles are made at: the first clip's footage reframed to
+/// the project's aspect (so titles and the preview match the export).
 ({int width, int height, double fps}) projectTitleFormat(Project project) {
   final first = project.clips.isEmpty
       ? null
       : project.mediaById(project.clips.first.mediaId);
-  return titleFormat(
-    first?.width ?? 0,
-    first?.height ?? 0,
-    first?.frameRate ?? 30,
+  if (project.aspect == ReframeAspect.source) {
+    return titleFormat(
+      first?.width ?? 0,
+      first?.height ?? 0,
+      first?.frameRate ?? 30,
+    );
+  }
+  final size = outputSize(first?.width ?? 0, first?.height ?? 0, project.aspect);
+  return (
+    width: size.width,
+    height: size.height,
+    fps: (first?.frameRate ?? 30).clamp(1, 60).toDouble(),
   );
 }
 

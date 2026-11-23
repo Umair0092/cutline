@@ -47,6 +47,17 @@ class RenameProject extends EditCommand {
   }
 }
 
+class SetAspect extends EditCommand {
+  const SetAspect(this.aspect);
+  final ReframeAspect aspect;
+
+  @override
+  String get label => 'Reframe to ${aspect.label}';
+
+  @override
+  Project apply(Project project) => project.copyWith(aspect: aspect);
+}
+
 class AddMedia extends EditCommand {
   const AddMedia(this.asset);
   final MediaAsset asset;

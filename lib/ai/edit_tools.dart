@@ -269,6 +269,21 @@ class EditToolbox {
       ['name'],
     ),
     _tool(
+      'set_aspect',
+      'Reframe the whole video to a shape: "wide" (16:9), "vertical" (9:16, '
+          'for Shorts, Reels and TikTok), "square" (1:1), or "source" (keep '
+          'the footage\'s own shape). Footage that doesn\'t fill the new '
+          'shape gets black bars. Use for "make this a short", "make it '
+          'vertical", "square it up".',
+      {
+        'aspect': {
+          'type': 'string',
+          'enum': [for (final a in ReframeAspect.values) a.name],
+        },
+      },
+      ['aspect'],
+    ),
+    _tool(
       'add_title',
       'Add an intro, title or picture clip. "before" puts a full-screen '
           'card before the video, "after" at the end (only full-screen '
@@ -687,6 +702,16 @@ class EditToolbox {
         null,
       ),
       'rename_project' => (RenameProject(_string(input, 'name')), null),
+      'set_aspect' => (
+        SetAspect(
+          ReframeAspect.values.byName(
+            _enum(input, 'aspect', [
+              for (final a in ReframeAspect.values) a.name,
+            ], ReframeAspect.source.name),
+          ),
+        ),
+        null,
+      ),
       'add_title' => (await _addTitle(input, project, context), null),
       'edit_title' => (await _editTitle(input, project, context), null),
       'remove_title' => (RemoveTitle(_string(input, 'title_id')), null),

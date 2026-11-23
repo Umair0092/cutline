@@ -30,23 +30,36 @@ class ExportFormat {
         : project.mediaById(project.clips.first.mediaId);
     final srcW = (first?.width ?? 0) > 0 ? first!.width : 1920;
     final srcH = (first?.height ?? 0) > 0 ? first!.height : 1080;
-    final portrait = srcH > srcW;
 
     int width;
     int height;
-    if (preset.height == null) {
-      width = srcW;
-      height = srcH;
-    } else if (portrait) {
-      // "1080p" means the short side, so a 1080x1920 phone video stays so.
-      width = preset.height!;
-      height = (preset.height! * srcH / srcW).round();
+    if (project.aspect != ReframeAspect.source) {
+      // Reframe to the chosen aspect, short side at the preset (default 1080).
+      final size = outputSize(
+        srcW,
+        srcH,
+        project.aspect,
+        maxShort: preset.height ?? 1080,
+      );
+      width = size.width;
+      height = size.height;
     } else {
-      height = preset.height!;
-      width = (preset.height! * srcW / srcH).round();
+      // Keep the source shape; the preset sets the short side ("1080p" =
+      // 1080 on the short side), so a vertical phone video stays vertical.
+      final portrait = srcH > srcW;
+      if (preset.height == null) {
+        width = srcW;
+        height = srcH;
+      } else if (portrait) {
+        width = preset.height!;
+        height = (preset.height! * srcH / srcW).round();
+      } else {
+        height = preset.height!;
+        width = (preset.height! * srcW / srcH).round();
+      }
+      width = _even(width);
+      height = _even(height);
     }
-    width = _even(width);
-    height = _even(height);
 
     final fps = (first?.frameRate ?? 30).clamp(1, 60).toDouble();
     // About 12 Mbit/s for 1080p30, scaled by pixels and frame rate.

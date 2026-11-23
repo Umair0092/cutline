@@ -38,6 +38,9 @@ _Project _$ProjectFromJson(Map<String, dynamic> json) => _Project(
   mix: json['mix'] == null
       ? const AudioMix()
       : AudioMix.fromJson(json['mix'] as Map<String, dynamic>),
+  aspect:
+      $enumDecodeNullable(_$ReframeAspectEnumMap, json['aspect']) ??
+      ReframeAspect.source,
 );
 
 Map<String, dynamic> _$ProjectToJson(_Project instance) => <String, dynamic>{
@@ -49,4 +52,12 @@ Map<String, dynamic> _$ProjectToJson(_Project instance) => <String, dynamic>{
   'audio': instance.audio.map((e) => e.toJson()).toList(),
   'titles': instance.titles.map((e) => e.toJson()).toList(),
   'mix': instance.mix.toJson(),
+  'aspect': _$ReframeAspectEnumMap[instance.aspect]!,
+};
+
+const _$ReframeAspectEnumMap = {
+  ReframeAspect.source: 'source',
+  ReframeAspect.wide: 'wide',
+  ReframeAspect.vertical: 'vertical',
+  ReframeAspect.square: 'square',
 };

@@ -34,6 +34,7 @@ Map<String, dynamic> projectSummary(
   final starts = project.clipStarts;
   return {
     'name': project.name,
+    'aspect': project.aspect.name,
     'duration': _s(project.duration),
     if (playhead != null) 'playhead': _s(playhead),
     'clips': [
