@@ -68,11 +68,13 @@ class ScriptedHttp {
   final List<http.StreamedResponse Function()> responses;
   final requests = <Map<String, dynamic>>[];
   final headers = <Map<String, String>>[];
+  final urls = <String>[];
 
   http.Client get client => MockClient.streaming((request, body) async {
     final bytes = await body.toBytes();
     requests.add(jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
     headers.add(request.headers);
+    urls.add(request.url.toString());
     return responses.removeAt(0)();
   });
 

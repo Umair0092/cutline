@@ -17,6 +17,8 @@ class Preferences {
     this.brandColor = '',
     this.provider = AiProvider.groq,
     this.onboarded = false,
+    this.models = const {},
+    this.customEndpoint = '',
   });
 
   factory Preferences.fromJson(Map<String, dynamic> json) => Preferences(
@@ -28,6 +30,14 @@ class Preferences {
             .firstOrNull ??
         AiProvider.groq,
     onboarded: json['onboarded'] as bool? ?? false,
+    models: switch (json['models']) {
+      final Map<String, dynamic> m => {
+        for (final MapEntry(:key, :value) in m.entries)
+          if (value is String && value.isNotEmpty) key: value,
+      },
+      _ => const {},
+    },
+    customEndpoint: json['customEndpoint'] as String? ?? '',
   );
 
   final String yourName;
@@ -41,17 +51,49 @@ class Preferences {
   /// The first-run guide has been seen.
   final bool onboarded;
 
+  /// Per-provider model override, by provider name. Empty uses the
+  /// provider's default model.
+  final Map<String, String> models;
+
+  /// Base URL for the [AiProvider.custom] endpoint.
+  final String customEndpoint;
+
   Preferences copyWith({
     String? yourName,
     String? brandColor,
     AiProvider? provider,
     bool? onboarded,
+    Map<String, String>? models,
+    String? customEndpoint,
   }) => Preferences(
     yourName: yourName ?? this.yourName,
     brandColor: brandColor ?? this.brandColor,
     provider: provider ?? this.provider,
     onboarded: onboarded ?? this.onboarded,
+    models: models ?? this.models,
+    customEndpoint: customEndpoint ?? this.customEndpoint,
   );
+
+  /// The model to use for [provider]: the user's override, or the default.
+  String modelFor(AiProvider provider) {
+    final override = models[provider.name]?.trim() ?? '';
+    return override.isNotEmpty ? override : provider.model;
+  }
+
+  /// The chat endpoint for [provider]: the custom URL, or the default.
+  String endpointFor(AiProvider provider) =>
+      provider.needsEndpoint ? customEndpoint.trim() : provider.endpoint;
+
+  /// A copy with [model] set as the override for [provider] (empty clears it).
+  Preferences withModel(AiProvider provider, String model) {
+    final next = {...models};
+    if (model.trim().isEmpty) {
+      next.remove(provider.name);
+    } else {
+      next[provider.name] = model.trim();
+    }
+    return copyWith(models: next);
+  }
 
   bool get isEmpty => yourName.isEmpty && brandColor.isEmpty;
 
@@ -60,6 +102,8 @@ class Preferences {
     if (brandColor.isNotEmpty) 'brandColor': brandColor,
     'provider': provider.name,
     if (onboarded) 'onboarded': true,
+    if (models.isNotEmpty) 'models': models,
+    if (customEndpoint.isNotEmpty) 'customEndpoint': customEndpoint,
   };
 }
 

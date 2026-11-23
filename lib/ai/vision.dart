@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../settings/preferences.dart';
 import 'assistant_client.dart';
 import 'claude_client.dart';
 
@@ -21,23 +22,25 @@ const _prompt =
     'the main subject, any text written in it, and its 2-4 main colours as '
     'hex codes like #1A2B3C. No preamble.';
 
-/// Groq's free vision model, through its OpenAI-compatible API.
-class GroqVision implements ImageDescriber {
-  GroqVision(
+/// Any OpenAI-compatible vision model (Groq, Gemini, Grok, custom).
+class OpenAiVision implements ImageDescriber {
+  OpenAiVision(
     this.apiKey, {
-    this.model = 'qwen/qwen3.8-27b',
+    required this.model,
+    required this.endpoint,
     http.Client? client,
   }) : _http = client ?? http.Client();
 
   final String apiKey;
   final String model;
+  final String endpoint;
   final http.Client _http;
 
   @override
   Future<String> describe(Uint8List png) async {
     final r = await _http
         .post(
-          Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+          Uri.parse(endpoint),
           headers: {
             'content-type': 'application/json',
             'authorization': 'Bearer $apiKey',
@@ -177,10 +180,24 @@ Future<({Uint8List png, bool transparent})> prepareImage(
 
 /// Builds the describer for a service and key. Tests override this.
 final imageDescriberFactoryProvider =
-    Provider<ImageDescriber Function(AiProvider, String)>(
-      (_) =>
-          (provider, key) => switch (provider) {
-            AiProvider.groq => GroqVision(key),
-            AiProvider.claude => ClaudeVision(key, model: provider.model),
-          },
-    );
+    Provider<ImageDescriber Function(AiProvider, String)>((ref) {
+      // Groq's default chat model isn't multimodal, so it has a dedicated
+      // vision model; other OpenAI-style providers use their own (multimodal)
+      // chat model.
+      const groqVisionModel = 'qwen/qwen3.8-27b';
+      return (provider, key) {
+        final prefs = ref.read(preferencesProvider).value;
+        final model = prefs?.modelFor(provider) ?? provider.model;
+        final endpoint = prefs?.endpointFor(provider) ?? provider.endpoint;
+        return switch (provider.protocol) {
+          AiProtocol.anthropic => ClaudeVision(key, model: model),
+          AiProtocol.openai => OpenAiVision(
+            key,
+            model: provider == AiProvider.groq ? groqVisionModel : model,
+            endpoint: provider == AiProvider.groq
+                ? 'https://api.groq.com/openai/v1/chat/completions'
+                : endpoint,
+          ),
+        };
+      };
+    });

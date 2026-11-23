@@ -240,11 +240,20 @@ typedef MemePlacer = Future<List<EditCommand>> Function(
 /// fake.
 final assistantClientFactoryProvider =
     Provider<AssistantClient Function(AiProvider, String)>(
-      (_) =>
-          (provider, key) => switch (provider) {
-            AiProvider.groq => GroqClient(apiKey: key, model: provider.model),
-            AiProvider.claude => ClaudeClient(apiKey: key),
-          },
+      (ref) => (provider, key) {
+        final prefs = ref.read(preferencesProvider).value;
+        final model = prefs?.modelFor(provider) ?? provider.model;
+        final endpoint = prefs?.endpointFor(provider) ?? provider.endpoint;
+        return switch (provider.protocol) {
+          AiProtocol.anthropic => ClaudeClient(apiKey: key),
+          AiProtocol.openai => OpenAiCompatibleClient(
+            apiKey: key,
+            model: model,
+            endpoint: endpoint,
+            serviceName: provider.label,
+          ),
+        };
+      },
     );
 
 const systemPrompt = '''

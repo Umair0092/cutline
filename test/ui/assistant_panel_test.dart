@@ -70,26 +70,33 @@ void main() {
 
     await tester.tap(find.byKey(const Key('open-settings')));
     await tester.pumpAndSettle();
+    // The AI settings page scrolls, so bring targets into view before tapping.
+    Future<void> tap(Finder f) async {
+      await tester.ensureVisible(f);
+      await tester.pumpAndSettle();
+      await tester.tap(f);
+    }
+
     await tester.enterText(find.byKey(const Key('api-key')), 'not-a-key');
-    await tester.tap(find.byKey(const Key('save-key')));
+    await tap(find.byKey(const Key('save-key')));
     await tester.pumpAndSettle();
     // Groq (free) is the default service.
     expect(find.textContaining('start with gsk_'), findsOneWidget);
 
     // Switching to Claude asks for a Claude key instead.
-    await tester.tap(find.text('Claude'));
+    await tap(find.text('Claude'));
     await settle(tester);
-    await tester.tap(find.byKey(const Key('save-key')));
+    await tap(find.byKey(const Key('save-key')));
     await tester.pumpAndSettle();
     expect(find.textContaining('start with sk-ant-'), findsOneWidget);
 
-    await tester.tap(find.text('Groq (free)'));
+    await tap(find.text('Groq (free)'));
     await settle(tester);
     await tester.enterText(
       find.byKey(const Key('api-key')),
       ' gsk_abcdefghijklmnopqrstuv ',
     );
-    await tester.tap(find.byKey(const Key('save-key')));
+    await tap(find.byKey(const Key('save-key')));
     await settle(tester);
     expect(keys.value, 'gsk_abcdefghijklmnopqrstuv');
     expect(find.text('What should we make?'), findsOneWidget);

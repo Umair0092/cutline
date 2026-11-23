@@ -191,10 +191,7 @@ class AiStatusChip extends ConsumerWidget {
     final provider = ref.watch(aiProviderProvider).value ?? AiProvider.groq;
     final key = ref.watch(apiKeyProvider);
     final ready = key.value != null;
-    final name = switch (provider) {
-      AiProvider.groq => 'Groq · Free',
-      AiProvider.claude => 'Claude',
-    };
+    final name = provider.freeToStart ? 'Groq · Free' : provider.label;
     final dot = Container(
       width: 8,
       height: 8,

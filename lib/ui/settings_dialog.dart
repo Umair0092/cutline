@@ -496,29 +496,40 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Widget _aiPage() {
     final saved = ref.watch(apiKeyProvider).value;
     final builtIn = saved != null && saved == builtinGroqKey;
-    final provider =
-        ref.watch(preferencesProvider).value?.provider ?? AiProvider.groq;
+    final prefs = ref.watch(preferencesProvider).value;
+    final provider = prefs?.provider ?? AiProvider.groq;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _status(),
         const SizedBox(height: CutSpace.s6),
         const FieldLabel('Service'),
-        Row(
-          key: const Key('provider'),
-          children: [
-            for (final (i, p) in AiProvider.values.indexed) ...[
-              if (i > 0) const SizedBox(width: CutSpace.s3),
-              Expanded(
-                child: _ProviderCard(
-                  provider: p,
-                  selected: p == provider,
-                  onTap: () => _setProvider(p),
-                ),
-              ),
-            ],
-          ],
+        LayoutBuilder(
+          builder: (context, c) {
+            const gap = CutSpace.s3;
+            final cols = c.maxWidth < 380 ? 1 : 2;
+            final width = (c.maxWidth - gap * (cols - 1)) / cols;
+            return Wrap(
+              key: const Key('provider'),
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final p in AiProvider.values)
+                  SizedBox(
+                    width: width,
+                    child: _ProviderCard(
+                      provider: p,
+                      model: prefs?.modelFor(p) ?? p.model,
+                      selected: p == provider,
+                      onTap: () => _setProvider(p),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
+        const SizedBox(height: CutSpace.s6),
+        _AdvancedModelFields(provider: provider),
         const SizedBox(height: CutSpace.s6),
         FieldLabel(
           '${provider.label} API key',
@@ -960,20 +971,144 @@ class _GroupRow extends StatelessWidget {
   );
 }
 
+/// The editable model id for the chosen provider, plus the endpoint URL when
+/// the provider is "Custom". Both save as you type (debounced).
+class _AdvancedModelFields extends ConsumerStatefulWidget {
+  const _AdvancedModelFields({required this.provider});
+
+  final AiProvider provider;
+
+  @override
+  ConsumerState<_AdvancedModelFields> createState() =>
+      _AdvancedModelFieldsState();
+}
+
+class _AdvancedModelFieldsState extends ConsumerState<_AdvancedModelFields> {
+  final _model = TextEditingController();
+  final _endpoint = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_AdvancedModelFields old) {
+    super.didUpdateWidget(old);
+    if (old.provider != widget.provider) _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await ref.read(preferencesProvider.future);
+      if (!mounted) return;
+      _model.text = prefs.models[widget.provider.name] ?? '';
+      _endpoint.text = prefs.customEndpoint;
+      setState(() {});
+    } on Object {
+      // Leave the fields empty if preferences can't be read.
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _model.dispose();
+    _endpoint.dispose();
+    super.dispose();
+  }
+
+  void _changed() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 450), _save);
+  }
+
+  Future<void> _save() async {
+    final prefs = await ref.read(preferencesProvider.future);
+    final next = prefs
+        .withModel(widget.provider, _model.text)
+        .copyWith(
+          customEndpoint: widget.provider.needsEndpoint
+              ? _endpoint.text.trim()
+              : null,
+        );
+    await ref.read(preferencesProvider.notifier).save(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = widget.provider;
+    final defaultModel = provider.model.isEmpty
+        ? 'e.g. gpt-4o-mini'
+        : provider.model;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (provider.needsEndpoint) ...[
+          const FieldLabel('Endpoint', icon: DialogIcons.cloud),
+          TextField(
+            key: const Key('custom-endpoint'),
+            controller: _endpoint,
+            autocorrect: false,
+            enableSuggestions: false,
+            style: CutType.timecode.copyWith(
+              color: Cut.textPrimary,
+              fontSize: 13,
+            ),
+            decoration: const InputDecoration(
+              hintText: 'https://api.your-provider.com/v1/chat/completions',
+            ),
+            onChanged: (_) => _changed(),
+          ),
+          const SizedBox(height: CutSpace.s5),
+        ],
+        const FieldLabel('Model', icon: CutIcons.aiOutline),
+        TextField(
+          key: const Key('model'),
+          controller: _model,
+          autocorrect: false,
+          enableSuggestions: false,
+          style: CutType.timecode.copyWith(
+            color: Cut.textPrimary,
+            fontSize: 13,
+          ),
+          decoration: InputDecoration(hintText: defaultModel),
+          onChanged: (_) => _changed(),
+        ),
+        const SizedBox(height: CutSpace.s2),
+        Text(
+          provider.needsEndpoint
+              ? 'Any OpenAI-compatible chat endpoint. Your key is sent as a '
+                    'Bearer token.'
+              : 'Leave empty to use the default ($defaultModel). Change it if '
+                    'the provider updates its model names.',
+          style: CutType.caption.copyWith(color: Cut.textTertiary),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProviderCard extends StatelessWidget {
   const _ProviderCard({
     required this.provider,
+    required this.model,
     required this.selected,
     required this.onTap,
   });
 
   final AiProvider provider;
+
+  /// The effective model (override or default) to show on the card.
+  final String model;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final free = provider == AiProvider.groq;
+    final free = provider.freeToStart;
     return Semantics(
       selected: selected,
       child: Pressable(
@@ -1012,14 +1147,14 @@ class _ProviderCard extends StatelessWidget {
               Text(provider.label, style: CutType.titleSm),
               const SizedBox(height: 2),
               Text(
-                free ? 'Fast, with per-minute limits' : 'The most capable',
+                provider.blurb,
                 style: CutType.caption,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 6),
               Text(
-                provider.model,
+                model.isEmpty ? 'Set a model below' : model,
                 style: CutType.timecode.copyWith(
                   fontSize: 11,
                   color: Cut.textTertiary,
