@@ -91,21 +91,25 @@ class _StartHeroState extends ConsumerState<StartHero> {
     );
   }
 
-  Widget _chips({bool wrap = true}) {
+  /// The quick-start chips. [photosFirst] puts the photo start up front,
+  /// where there's no other way in without a video (phone layout).
+  List<Widget> _chipWidgets({required bool photosFirst}) {
     final photos = PromptChip(
       key: const Key('start-photos-chip'),
       label: 'Photos → video',
       icon: CutIcons.image,
       onTap: _photos,
     );
-    final chips = [
-      // On phones the chips scroll sideways, so the photo start (the only
-      // way in without a video) goes first where it's seen.
-      if (!wrap) photos,
+    return [
+      if (photosFirst) photos,
       for (final (label, prompt) in startPrompts)
         PromptChip(label: label, ai: true, onTap: () => _video(prompt)),
-      if (wrap) photos,
+      if (!photosFirst) photos,
     ];
+  }
+
+  Widget _chips({bool wrap = true}) {
+    final chips = _chipWidgets(photosFirst: !wrap);
     if (wrap) {
       return Wrap(spacing: 8, runSpacing: 8, children: chips);
     }
@@ -119,6 +123,36 @@ class _StartHeroState extends ConsumerState<StartHero> {
             c,
           ],
         ],
+      ),
+    );
+  }
+
+  /// Wide layout: a single scrollable strip that stays inside its column.
+  /// Chips that don't fit stay reachable by scrolling, and a trailing fade
+  /// hints there's more rather than hard-clipping the last chip behind the
+  /// action buttons.
+  Widget _wideChips() {
+    final chips = _chipWidgets(photosFirst: false);
+    return ShaderMask(
+      shaderCallback: (rect) => const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        stops: [0, 0.9, 1],
+        colors: [Colors.black, Colors.black, Colors.transparent],
+      ).createShader(rect),
+      blendMode: BlendMode.dstIn,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final (i, c) in chips.indexed) ...[
+              if (i > 0) const SizedBox(width: 8),
+              c,
+            ],
+            // Breathing room so the fade never bites into the last chip.
+            const SizedBox(width: 24),
+          ],
+        ),
       ),
     );
   }
@@ -181,16 +215,7 @@ class _StartHeroState extends ConsumerState<StartHero> {
                       style: CutType.title,
                     ),
                     const SizedBox(height: 14),
-                    SizedBox(
-                      height: 32,
-                      child: ClipRect(
-                        child: OverflowBox(
-                          alignment: Alignment.centerLeft,
-                          maxWidth: double.infinity,
-                          child: _chips(),
-                        ),
-                      ),
-                    ),
+                    SizedBox(height: 32, child: _wideChips()),
                   ],
                 ),
               ),
