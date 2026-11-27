@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../ai/api_key_store.dart';
 import '../ai/assistant_client.dart';
@@ -157,6 +158,36 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     c.text = text;
     after();
   }
+
+  /// Opens a provider's signup / key page in the default browser. [url] may
+  /// omit the scheme (e.g. `console.groq.com/keys`).
+  Future<void> _openKeyPage(String url) async {
+    final full = url.startsWith('http') ? url : 'https://$url';
+    final uri = Uri.parse(full);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not open $full')));
+      }
+    }
+  }
+
+  /// A small "Get a key" link that opens [url] in the browser.
+  Widget _getKeyLink(String label, String url) => Align(
+    alignment: Alignment.centerLeft,
+    child: TextButton.icon(
+      onPressed: () => _openKeyPage(url),
+      icon: const Icon(Icons.open_in_new, size: 15),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        foregroundColor: Cut.accent,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        textStyle: CutType.caption,
+      ),
+    ),
+  );
 
   void _personalChanged() {
     _debounce?.cancel();
@@ -599,6 +630,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               : 'Paste another key to replace it.',
           style: CutType.caption.copyWith(color: Cut.textTertiary),
         ),
+        if (!provider.needsEndpoint) _getKeyLink('Get a key', provider.consoleUrl),
       ],
     );
   }
@@ -774,6 +806,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             onPressed: _saveGiphy,
           ),
         ),
+        _getKeyLink('Get a GIPHY key', 'developers.giphy.com/dashboard/'),
       ],
     );
   }
@@ -855,6 +888,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             onPressed: _saveEleven,
           ),
         ),
+        _getKeyLink('Get an ElevenLabs key', 'elevenlabs.io/app/settings/api-keys'),
         const SizedBox(height: 10),
         Text(
           'Pick an ElevenLabs voice in the voiceover window when you write a '

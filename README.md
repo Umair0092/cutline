@@ -14,7 +14,7 @@ Tell it "add an intro with my name and the title *Weekly Rails Tips*", "put the 
 - **Transcripts on your computer:** whisper.cpp, with word timings.
 - **Intros and titles:** four templates with your name, title, colours and fonts, before the video or over it.
 - **Memes, GIFs, stickers and pictures** on top of the video: drag to place and resize, with pop, fade and slide animations. Search GIPHY or your own memes folder, or ask the assistant to add or suggest them.
-- **Voiceovers:** record one from your microphone, or write a script and have it spoken (system voices, or Groq's natural voices). The video's sound dips while you talk.
+- **Voiceovers:** record one from your microphone, or write a script and have it spoken (system voices, Groq's natural voices, or ElevenLabs' lifelike voices with your key). The video's sound dips while you talk.
 - **Voice effects:** pitch, speed, robot, noise cleanup and even loudness, from the inspector or chat.
 - **Export to MP4** with FFmpeg, using the hardware encoder when there is one.
 
@@ -34,6 +34,8 @@ On first launch a short guide helps you:
 1. add a free [Groq](https://console.groq.com/keys) key for the assistant (or use Claude with your own key);
 2. download the speech model (148 MB, once);
 3. try an edit on a sample video.
+
+See [**Getting and adding API keys**](docs/API_KEYS.md) for step-by-step instructions on every key (AI providers, GIPHY, ElevenLabs) and how to add them in Settings.
 
 Until the builds are signed (see below), macOS says the app is from an unidentified developer: right-click Cutline → Open the first time. On Windows, SmartScreen shows "More info → Run anyway".
 
