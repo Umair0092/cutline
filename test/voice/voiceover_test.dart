@@ -259,6 +259,82 @@ void main() {
     });
   });
 
+  group('ElevenLabsSpeaker', () {
+    final ffmpeg = const FfmpegLocator().find();
+
+    http.Response voicesResponse() => http.Response(
+      jsonEncode({
+        'voices': [
+          {'name': 'Rachel', 'voice_id': 'rid'},
+          {'name': 'Antoni', 'voice_id': 'aid'},
+        ],
+      }),
+      200,
+    );
+
+    test('resolves the voice name to an id and sends the key header', () async {
+      final urls = <String>[];
+      final eleven = ElevenLabsSpeaker(
+        ffmpeg!,
+        'sk_11',
+        client: MockClient((r) async {
+          if (r.url.path.endsWith('/v1/voices')) {
+            expect(r.headers['xi-api-key'], 'sk_11');
+            return voicesResponse();
+          }
+          urls.add(r.url.path);
+          final body = jsonDecode(r.body) as Map<String, dynamic>;
+          expect(body['model_id'], 'eleven_multilingual_v2');
+          expect(r.headers['xi-api-key'], 'sk_11');
+          return http.Response.bytes(silentWav(1), 200);
+        }),
+      );
+      final out = '${work.path}/out.wav';
+      await eleven.speak(
+        SpeechSpec(
+          text:
+              '${'A fairly long sentence about the setup screen. ' * 80}End.',
+          engine: VoiceEngine.elevenlabs,
+          voice: 'Antoni',
+        ),
+        out,
+      );
+      expect(urls.length, greaterThan(1)); // chunked
+      expect(urls.every((u) => u.endsWith('/text-to-speech/aid')), isTrue);
+      expect(File(out).existsSync(), isTrue);
+    }, skip: ffmpeg == null ? 'needs ffmpeg' : null);
+
+    test('lists the account\'s voices', () async {
+      final eleven = ElevenLabsSpeaker(
+        ffmpeg ?? 'ffmpeg',
+        'sk_11',
+        client: MockClient((_) async => voicesResponse()),
+      );
+      expect(await eleven.voices(), ['Rachel', 'Antoni']);
+    });
+
+    test('reports a rejected key', () async {
+      final eleven = ElevenLabsSpeaker(
+        ffmpeg ?? 'ffmpeg',
+        'sk_bad',
+        client: MockClient((_) async => http.Response('nope', 401)),
+      );
+      expect(
+        () => eleven.speak(
+          const SpeechSpec(text: 'Hi', engine: VoiceEngine.elevenlabs),
+          '${work.path}/x.wav',
+        ),
+        throwsA(
+          isA<SpeechException>().having(
+            (e) => e.message,
+            'message',
+            contains('didn\'t accept'),
+          ),
+        ),
+      );
+    });
+  });
+
   test('a project with a voiceover line survives save and load', () async {
     var p = threeClips();
     for (final c in await voiceoverCommands(

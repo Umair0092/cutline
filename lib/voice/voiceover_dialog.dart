@@ -355,7 +355,7 @@ class _VoiceoverDialogState extends ConsumerState<VoiceoverDialog> {
             FieldLabel(
               'Voice',
               trailing: SizedBox(
-                width: 250,
+                width: 330,
                 child: SegmentedPill<VoiceEngine>(
                   key: const Key('voice-engine'),
                   height: 32,
@@ -363,6 +363,11 @@ class _VoiceoverDialogState extends ConsumerState<VoiceoverDialog> {
                   segments: const [
                     (VoiceEngine.system, 'Offline', DialogIcons.desktop),
                     (VoiceEngine.groq, 'Natural', DialogIcons.cloud),
+                    (
+                      VoiceEngine.elevenlabs,
+                      'ElevenLabs',
+                      DialogIcons.sparkleFill,
+                    ),
                   ],
                   selected: _engine,
                   onChanged: _setEngine,
@@ -376,10 +381,16 @@ class _VoiceoverDialogState extends ConsumerState<VoiceoverDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              _engine == VoiceEngine.system
-                  ? 'Your computer\'s own voices. Free and offline.'
-                  : 'Groq\'s natural voices, using your Groq key. The text '
-                        'is sent to Groq.',
+              switch (_engine) {
+                VoiceEngine.system =>
+                  'Your computer\'s own voices. Free and offline.',
+                VoiceEngine.groq =>
+                  'Groq\'s natural voices, using your Groq key. The text '
+                      'is sent to Groq.',
+                VoiceEngine.elevenlabs =>
+                  'ElevenLabs\' lifelike voices, using your ElevenLabs key. '
+                      'The text is sent to ElevenLabs.',
+              },
               style: CutType.caption.copyWith(color: Cut.textTertiary),
             ),
             const SizedBox(height: CutSpace.s4),
@@ -490,7 +501,11 @@ class _VoiceoverDialogState extends ConsumerState<VoiceoverDialog> {
           name: _display(v),
           tag:
               _voiceTags[v] ??
-              (_engine == VoiceEngine.groq ? 'Natural' : 'System'),
+              switch (_engine) {
+                VoiceEngine.system => 'System',
+                VoiceEngine.groq => 'Natural',
+                VoiceEngine.elevenlabs => 'Lifelike',
+              },
           selected: v == _voice,
           loading: _previewing == v,
           playing: playing == previewId,

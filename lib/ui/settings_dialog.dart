@@ -14,6 +14,7 @@ import '../memes/meme_search.dart';
 import '../onboarding/onboarding.dart';
 import '../settings/preferences.dart';
 import '../titles/templates.dart';
+import '../voice/elevenlabs_key.dart';
 import 'dialogs/dialog_kit.dart';
 import 'splash_screen.dart';
 import 'tokens.dart';
@@ -25,6 +26,7 @@ enum SettingsPage {
   ai('AI assistant', 'The service that edits for you', CutIcons.aiOutline),
   intros('Intros', 'Your name and brand colour for titles', DialogIcons.brush),
   memes('Memes', 'GIF and sticker search', DialogIcons.smiley),
+  voice('Voiceover', 'Natural AI voices for voiceovers', CutIcons.voice),
   shortcuts('Shortcuts', 'Keys that save you clicks', CutIcons.keyboard),
   about('About', 'Version, privacy and licences', DialogIcons.appInfo);
 
@@ -58,13 +60,16 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   final _name = TextEditingController();
   final _brand = TextEditingController();
   final _giphy = TextEditingController();
+  final _eleven = TextEditingController();
   final _search = TextEditingController();
   bool _show = false;
   bool _showGiphy = false;
+  bool _showEleven = false;
   bool _savingKey = false;
   String? _error;
   String? _brandError;
   String? _giphyError;
+  String? _elevenError;
   Timer? _debounce;
   Timer? _savedTimer;
   bool _saved = false;
@@ -92,6 +97,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     _name.dispose();
     _brand.dispose();
     _giphy.dispose();
+    _eleven.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -190,6 +196,21 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     setState(() {
       _giphy.clear();
       _giphyError = null;
+    });
+    _flashSaved();
+  }
+
+  Future<void> _saveEleven() async {
+    final key = _eleven.text.trim();
+    if (key.length < 20) {
+      setState(() => _elevenError = 'Paste the whole key from ElevenLabs.');
+      return;
+    }
+    await ref.read(elevenlabsKeyProvider.notifier).save(key);
+    if (!mounted) return;
+    setState(() {
+      _eleven.clear();
+      _elevenError = null;
     });
     _flashSaved();
   }
@@ -413,6 +434,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     SettingsPage.ai => _aiPage(),
     SettingsPage.intros => _introsPage(),
     SettingsPage.memes => _memesPage(),
+    SettingsPage.voice => _voicePage(),
     SettingsPage.shortcuts => _shortcutsPage(),
     SettingsPage.about => const _AboutPage(),
   };
@@ -751,6 +773,93 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             height: 40,
             onPressed: _saveGiphy,
           ),
+        ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------ voiceover
+
+  Widget _voicePage() {
+    final eleven = ref.watch(elevenlabsKeyProvider).value;
+    final elevenBuiltIn = eleven != null && eleven == builtinElevenLabsKey;
+    final ready = eleven != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Cut.surface1,
+            borderRadius: BorderRadius.circular(CutRadii.lg),
+            border: Border.all(color: Cut.strokeSubtle),
+          ),
+          child: Row(
+            children: [
+              _Dot(color: ready ? Cut.success : Cut.textTertiary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ready
+                          ? 'ElevenLabs voices are on'
+                          : 'ElevenLabs voices are off',
+                      style: CutType.bodyStrong,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      !ready
+                          ? 'Optional: a key adds ElevenLabs\' lifelike voices '
+                                'to voiceovers. Get one at elevenlabs.io.'
+                          : elevenBuiltIn
+                          ? 'Using the ElevenLabs key that came with this copy.'
+                          : 'Your key …${eleven.substring(math.max(0, eleven.length - 4))} '
+                                'is in the system keychain.',
+                      style: CutType.caption,
+                    ),
+                  ],
+                ),
+              ),
+              if (ready && !elevenBuiltIn)
+                CutIconButton(
+                  icon: CutIcons.trash,
+                  tooltip: 'Remove the ElevenLabs key',
+                  color: Cut.error,
+                  onPressed: () async {
+                    await ref.read(elevenlabsKeyProvider.notifier).remove();
+                    _flashSaved();
+                  },
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: CutSpace.s6),
+        const FieldLabel('ElevenLabs API key', icon: CutIcons.key),
+        _SecretField(
+          fieldKey: const Key('eleven-key'),
+          controller: _eleven,
+          revealed: _showEleven,
+          onReveal: () => setState(() => _showEleven = !_showEleven),
+          onPaste: () =>
+              _paste(_eleven, () => setState(() => _elevenError = null)),
+          hint: ready ? 'Paste a new key' : 'Paste your key',
+          error: _elevenError,
+          onChanged: (_) => setState(() => _elevenError = null),
+          onSubmitted: (_) => _saveEleven(),
+          action: PrimaryButton(
+            key: const Key('save-eleven'),
+            label: 'Save key',
+            height: 40,
+            onPressed: _saveEleven,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Pick an ElevenLabs voice in the voiceover window when you write a '
+          'voiceover. Your text is sent to ElevenLabs.',
+          style: CutType.caption.copyWith(color: Cut.textTertiary),
         ),
       ],
     );
