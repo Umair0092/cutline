@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Impeller (Flutter's default renderer on macOS since 3.47) races with
+	     media_kit_video's texture buffer recycling, flickering the video
+	     preview to black at random. Stay on the Skia renderer until the
+	     plugin's texture path is Impeller-safe. See
+	     https://github.com/baizhiheizi/enjoy_player/issues/1251 -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDocumentTypes</key>
