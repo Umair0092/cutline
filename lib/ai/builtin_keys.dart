@@ -6,3 +6,4 @@
 /// you keep for yourself. A key saved in Settings always wins.
 const builtinGroqKey = String.fromEnvironment('GROQ_API_KEY');
 const builtinGiphyKey = String.fromEnvironment('GIPHY_API_KEY');
+const builtinElevenLabsKey = String.fromEnvironment('ELEVENLABS_API_KEY');

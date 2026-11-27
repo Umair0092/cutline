@@ -10,6 +10,7 @@ import '../ai/assistant_client.dart';
 import '../ai/builtin_keys.dart';
 import '../media/ffmpeg.dart';
 import '../model/speech_spec.dart';
+import 'elevenlabs_key.dart';
 
 class SpeechException implements Exception {
   SpeechException(this.message);
@@ -25,6 +26,9 @@ const groqVoices = ['troy', 'hannah', 'austin', 'diana', 'daniel', 'autumn'];
 
 /// Groq takes at most this many characters per request.
 const groqMaxChars = 200;
+
+/// Keep ElevenLabs requests comfortably under its per-request limit.
+const elevenlabsMaxChars = 2500;
 
 /// Splits [text] into pieces of at most [max] characters, at sentence ends
 /// where possible, then at commas, then at spaces.
@@ -285,6 +289,113 @@ class GroqSpeaker implements Speaker {
   }
 }
 
+/// ElevenLabs' lifelike voices, with your ElevenLabs key. Voices are read
+/// from your account; text is sent in pieces of up to 2500 characters and
+/// joined.
+class ElevenLabsSpeaker implements Speaker {
+  ElevenLabsSpeaker(this.ffmpeg, this.apiKey, {http.Client? client})
+    : _http = client ?? http.Client();
+
+  final String ffmpeg;
+  final String apiKey;
+  final http.Client _http;
+
+  static const base = 'https://api.elevenlabs.io/v1';
+  static const model = 'eleven_multilingual_v2';
+
+  /// Rachel: a calm, clear voice that ships with every account.
+  static const defaultVoiceId = '21m00Tcm4TlvDq8ikWAM';
+
+  Map<String, String>? _byName; // voice name -> id
+
+  Future<Map<String, String>> _voiceMap() async {
+    if (_byName != null) return _byName!;
+    final http.Response r;
+    try {
+      r = await _http
+          .get(Uri.parse('$base/voices'), headers: {'xi-api-key': apiKey})
+          .timeout(const Duration(seconds: 30));
+    } on Exception {
+      throw SpeechException('Couldn\'t reach ElevenLabs. Check your internet.');
+    }
+    if (r.statusCode != 200) throw SpeechException(_error(r));
+    final map = <String, String>{};
+    try {
+      final voices =
+          (jsonDecode(r.body) as Map<String, dynamic>)['voices'] as List;
+      for (final v in voices) {
+        final m = v as Map<String, dynamic>;
+        final name = m['name'] as String?;
+        final id = m['voice_id'] as String?;
+        if (name != null && id != null && name.isNotEmpty) map[name] = id;
+      }
+    } on Object {
+      throw SpeechException(
+        'ElevenLabs sent its voices in a form I couldn\'t read.',
+      );
+    }
+    return _byName = map;
+  }
+
+  @override
+  Future<List<String>> voices() async => (await _voiceMap()).keys.toList();
+
+  @override
+  Future<void> speak(SpeechSpec spec, String outWav) async {
+    var voiceId = defaultVoiceId;
+    if (spec.voice.isNotEmpty) {
+      final map = await _voiceMap();
+      // Accept either a voice name or a raw voice id.
+      voiceId = map[spec.voice] ?? spec.voice;
+    }
+    final tmp = Directory.systemTemp.createTempSync('cutline_11labs');
+    try {
+      final parts = <String>[];
+      final pieces = splitForSpeech(spec.text, elevenlabsMaxChars);
+      for (var i = 0; i < pieces.length; i++) {
+        final http.Response r;
+        try {
+          r = await _http
+              .post(
+                Uri.parse(
+                  '$base/text-to-speech/$voiceId?output_format=mp3_44100_128',
+                ),
+                headers: {
+                  'xi-api-key': apiKey,
+                  'Content-Type': 'application/json',
+                  'Accept': 'audio/mpeg',
+                },
+                body: jsonEncode({'text': pieces[i], 'model_id': model}),
+              )
+              .timeout(const Duration(seconds: 60));
+        } on Exception {
+          throw SpeechException(
+            'Couldn\'t reach ElevenLabs. Check your internet.',
+          );
+        }
+        if (r.statusCode != 200) throw SpeechException(_error(r));
+        final part = p.join(tmp.path, 'part$i.mp3');
+        File(part).writeAsBytesSync(r.bodyBytes);
+        parts.add(part);
+      }
+      if (parts.isEmpty) throw SpeechException('There\'s nothing to say.');
+      await _finish(ffmpeg, parts, spec.speed, outWav);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
+  }
+
+  String _error(http.Response r) => switch (r.statusCode) {
+    401 => 'ElevenLabs didn\'t accept the API key.',
+    403 => 'This ElevenLabs key isn\'t allowed to do that.',
+    422 => 'ElevenLabs couldn\'t use that request.',
+    429 =>
+      'ElevenLabs\' limit is used up for now. Try again in a minute, or use '
+          'another voice.',
+    _ => 'ElevenLabs speech failed (${r.statusCode}).',
+  };
+}
+
 /// Makes the speaker for an engine. Tests override this.
 final speakerFactoryProvider =
     Provider<Future<Speaker> Function(VoiceEngine engine)>(
@@ -292,6 +403,16 @@ final speakerFactoryProvider =
         final ffmpeg = const FfmpegLocator().find();
         if (ffmpeg == null) throw SpeechException('FFmpeg is missing.');
         if (engine == VoiceEngine.system) return SystemSpeaker(ffmpeg);
+        if (engine == VoiceEngine.elevenlabs) {
+          final key = await ref.read(elevenlabsKeyProvider.future);
+          if (key == null || key.isEmpty) {
+            throw SpeechException(
+              'ElevenLabs voices use your ElevenLabs key. Add one in '
+              'Settings → Voiceover, or use another voice.',
+            );
+          }
+          return ElevenLabsSpeaker(ffmpeg, key);
+        }
         var key = await ref.read(apiKeyStoreProvider).read(AiProvider.groq);
         if (key == null || key.isEmpty) key = builtinGroqKey;
         if (key.isEmpty) {

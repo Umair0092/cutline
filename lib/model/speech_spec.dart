@@ -10,6 +10,9 @@ enum VoiceEngine {
 
   /// Groq's Orpheus voices: more natural, uses your Groq key.
   groq,
+
+  /// ElevenLabs' lifelike voices: the most natural, uses your ElevenLabs key.
+  elevenlabs,
 }
 
 /// What a generated voiceover line says and how, so it can be made again

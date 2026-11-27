@@ -26,4 +26,5 @@ Map<String, dynamic> _$SpeechSpecToJson(_SpeechSpec instance) =>
 const _$VoiceEngineEnumMap = {
   VoiceEngine.system: 'system',
   VoiceEngine.groq: 'groq',
+  VoiceEngine.elevenlabs: 'elevenlabs',
 };

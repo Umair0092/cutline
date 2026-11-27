@@ -439,12 +439,14 @@ class EditToolbox {
           'enum': [for (final e in VoiceEngine.values) e.name],
           'description':
               'system: the computer\'s voices (default). groq: more '
-              'natural voices.',
+              'natural voices. elevenlabs: the most lifelike voices.',
         },
         'voice': {
           'type': 'string',
           'description':
-              'For groq: ${groqVoices.join(', ')}. Leave out for the default.',
+              'For groq: ${groqVoices.join(', ')}. For elevenlabs: a voice '
+              'name from the user\'s ElevenLabs account. Leave out for the '
+              'default.',
         },
         'speed': {'type': 'number', 'minimum': 0.75, 'maximum': 1.5},
       },
